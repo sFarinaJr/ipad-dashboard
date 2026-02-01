@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=1024, height=768, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>iPad A1395 - Screenshot Rotator</title>
+    <meta http-equiv="refresh" content="300"> <!-- Refresh automático a cada 5 minutos -->
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: black;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+        img {
+            width: 100%;
+            height: auto;
+            max-height: 768px;
+            border: none;
+        }
+        .loading {
+            color: white;
+            font-size: 20px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <img src="https://ipad-screenshot-rotator-1.onrender.com/latest-screenshot" alt="Screenshot atual" onerror="this.style.display='none'; document.querySelector('.loading').style.display='block';">
+    <div class="loading" style="display:none;">Aguardando screenshot... (Atualiza em 5 min)</div>
+</body>
+</html>
