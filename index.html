@@ -1,63 +1,90 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=1024, height=768, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>iPad A1395 - Screenshot Rotator</title>
-    <!-- Anti-cache forte + refresh a cada 5 minutos -->
-    <meta http-equiv="refresh" content="300">
-    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-    <meta http-equiv="Pragma" content="no-cache">
-    <meta http-equiv="Expires" content="0">
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-            background-color: black;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            overflow: hidden;
-            font-family: Helvetica, Arial, sans-serif;
-        }
-        img {
-            width: 100%;
-            height: auto;
-            max-height: 768px;
-            border: none;
-        }
-        .loading {
-            color: #0ff;
-            font-size: 24px;
-            text-align: center;
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-        }
-        .timestamp {
-            position: absolute;
-            bottom: 10px;
-            left: 10px;
-            color: #aaa;
-            font-size: 14px;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <title>Dashboard Notícias iPad</title>
+  <style type="text/css">
+    * {
+      margin: 0;
+      padding: 0;
+    }
+    html, body {
+      height: 100%;
+      background-color: #0a1f3a; /* Fundo levemente azul escuro */
+      overflow: hidden;
+      text-align: center;
+    }
+    .container {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+    }
+    h1 {
+      font-size: 50px;
+      margin-bottom: 20px;
+      color: #ffffff;
+    }
+    img {
+      width: 100%;
+      max-width: 1024px;
+      height: auto;
+      max-height: 768px;
+      object-fit: contain;
+      border: none;
+    }
+    #status {
+      font-size: 24px;
+      color: #aaccff; /* Azul claro para contraste */
+      margin-top: 20px;
+    }
+    #time {
+      font-size: 18px;
+      color: #aaa;
+      margin-top: 10px;
+    }
+  </style>
 </head>
 <body>
+  <div class="container">
+    <h1>Dashboard Notícias</h1>
     <img id="screenshot" 
-         src="https://raw.githubusercontent.com/sfarinajr/ipad-dashboard/main/latest-screenshot.png?nocache=<%= new Date().getTime() %>" 
-         alt="Screenshot atual" 
-         onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAyNCIgaGVpZ2h0PSI3NjgiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjEwMjQiIGhlaWdodD0iNzY4IiBmaWxsPSIjMjIyIi8+PHRleHQgeD0iNTEyIiB5PSI0MDAiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2EiIGZvbnQtc2l6ZT0iMzAiIGZpbGw9IiM5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiPkFndWFyZGFuZG8gcHJveGltyY28gc2NyZWVuc2hvdC4uLjwvdGV4dD48L3N2Zz4='; 
-               document.querySelector('.loading').style.display='block';">
-    <div class="loading">Aguardando screenshot... (atualiza em 5 min)</div>
-    <div class="timestamp">Última atualização: <span id="time"></span></div>
+         src="https://raw.githubusercontent.com/sfarinajr/ipad-dashboard/main/latest-screenshot.png" 
+         alt="Screenshot atual">
+    <div id="status">Carregando imagem...</div>
+    <div id="time">Atualizado em: carregando...</div>
+  </div>
 
-    <script>
-        document.getElementById('time').innerText = new Date().toLocaleString('pt-BR');
-        // Força reload da imagem a cada refresh
-        document.getElementById('screenshot').src += (document.getElementById('screenshot').src.indexOf('?') === -1 ? '?' : '&') + 't=' + new Date().getTime();
-    </script>
+  <script type="text/javascript">
+    var screenshot = document.getElementById('screenshot');
+    var statusEl = document.getElementById('status');
+    var timeEl = document.getElementById('time');
+
+    function updateImage() {
+      statusEl.innerHTML = 'Atualizando imagem...';
+      // Adiciona timestamp para forçar bypass de cache no Safari antigo
+      var ts = new Date().getTime();
+      screenshot.src = "https://raw.githubusercontent.com/sfarinajr/ipad-dashboard/main/latest-screenshot.png?t=" + ts;
+
+      // Atualiza horário
+      var d = new Date();
+      var h = d.getHours();
+      var m = d.getMinutes();
+      timeEl.innerHTML = 'Atualizado às ' + h + ':' + (m < 10 ? '0' : '') + m;
+    }
+
+    // Carrega imediatamente
+    updateImage();
+
+    // Atualiza a cada 5 minutos (300 segundos)
+    setInterval(updateImage, 300000);
+  </script>
 </body>
 </html>
