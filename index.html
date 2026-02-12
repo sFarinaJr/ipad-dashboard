@@ -44,10 +44,15 @@
     .progress-bar {
       height: 100%;
       width: 100%;
-      background: #4a90e2; /* azul legal para iPad */
+      background: #4a90e2;
+      transform: scaleX(1);
       transform-origin: left;
-      transition: transform 0.4s ease-out;
+      transition: transform linear 300s;   /* 300 segundos = 5 minutos */
       will-change: transform;
+    }
+    .progress-bar.reset {
+      transition: none;                    /* remove transição durante reset */
+      transform: scaleX(1);
     }
 
     /* Prompt de fullscreen */
@@ -87,41 +92,22 @@
   </div>
 
   <script>
-    const INTERVAL_MS = 5 * 60 * 1000; // 5 minutos
+    const INTERVAL_MS = 5 * 60 * 1000; // 300000 ms
     const img = document.getElementById('screenshot');
     const progressBar = document.getElementById('progress');
-    let lastUpdateTime = Date.now();
 
     function updateImage() {
       const ts = Date.now();
       img.src = `https://raw.githubusercontent.com/sfarinajr/ipad-dashboard/main/latest-screenshot.png?t=${ts}`;
-      lastUpdateTime = ts;
-      resetProgress();
-    }
-
-    function resetProgress() {
-      progressBar.style.transition = 'none';
-      progressBar.style.transform = 'scaleX(1)';
-      // Forçar reflow
-      void progressBar.offsetWidth;
-      progressBar.style.transition = 'transform 0.4s ease-out';
-      startProgressAnimation();
-    }
-
-    function startProgressAnimation() {
-      const elapsed = Date.now() - lastUpdateTime;
-      const remaining = INTERVAL_MS - elapsed;
       
-      if (remaining <= 0) {
-        progressBar.style.transform = 'scaleX(0)';
-        return;
-      }
-
-      const progress = remaining / INTERVAL_MS;
-      progressBar.style.transform = `scaleX(${progress})`;
-
-      // Continua atualizando suavemente
-      requestAnimationFrame(startProgressAnimation);
+      // Reset da barra: força volta a 100% instantaneamente
+      progressBar.classList.add('reset');
+      progressBar.offsetWidth; // força reflow
+      progressBar.classList.remove('reset');
+      
+      // Agora aplica a transição de 300s para esvaziar
+      progressBar.style.transition = 'transform linear 300s';
+      progressBar.style.transform = 'scaleX(0)';
     }
 
     function enterFullscreen() {
@@ -129,17 +115,15 @@
       if (elem.requestFullscreen) {
         elem.requestFullscreen();
       } else if (elem.webkitRequestFullscreen) {
-        elem.webkitRequestFullscreen();
-      } else if (elem.msRequestFullscreen) {
-        elem.msRequestFullscreen();
+        elem.webkitRequestFullscreen(Element.ALLOW_KEYBOARD_INPUT);
       }
     }
 
     // ─── Inicialização ────────────────────────────────────────
-    updateImage();           // Carrega logo de cara
-    resetProgress();         // Inicia barra cheia
+    // Carrega primeira imagem e inicia barra cheia → esvaziando em 5 min
+    updateImage();
 
-    // Atualiza a cada 5 minutos
+    // Atualiza a cada 5 minutos exatos
     setInterval(updateImage, INTERVAL_MS);
 
     // Tenta fullscreen na primeira interação real
@@ -147,9 +131,9 @@
       enterFullscreen();
     }, { once: true });
 
-    // Opcional: tenta novamente se sair do fullscreen
-    document.addEventListener('fullscreenchange', () => {
-      if (!document.fullscreenElement) {
+    // Mostra prompt novamente se sair do fullscreen
+    document.addEventListener('webkitfullscreenchange', () => {
+      if (!document.webkitFullscreenElement) {
         document.getElementById('fullscreen-prompt').style.display = 'flex';
       }
     });
