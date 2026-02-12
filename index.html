@@ -8,7 +8,7 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
-  <meta http-equiv="refresh" content="300"> <!-- recarrega a cada 5 min como backup -->
+  <meta http-equiv="refresh" content="300">
 
   <title>Dashboard</title>
 
@@ -26,8 +26,8 @@
     #debug {
       position:fixed; top:8px; left:8px; z-index:999;
       background:rgba(0,0,0,0.7); padding:6px 10px;
-      font-size:15px; font-family:monospace;
-      max-width:90%;
+      font-size:14px; font-family:monospace;
+      max-width:95%; line-height:1.4;
     }
     .progress-container {
       position:fixed; bottom:0; left:0; right:0; height:28px;
@@ -79,7 +79,7 @@
   </div>
 
   <script>
-    var base = 'https://raw.githubusercontent.com/sfarinajr/ipad-dashboard/main/';
+    var baseUrl = 'https://raw.githubusercontent.com/sfarinajr/ipad-dashboard/main/';
     var imagens = [
       'latest-screenshot.png',
       'screenshot-003.png',
@@ -94,34 +94,87 @@
       'screenshot-012.png'
     ];
     var idx = 0;
-    var tempo = 5 * 60 * 1000; // 5 minutos
+    var tempoTroca = 5 * 60 * 1000;      // 5 minutos
+    var tempoAtualizaLista = 50 * 60 * 1000; // 50 minutos
+
+    var debug = document.getElementById('debug');
+    var imgElement = document.getElementById('mainImage');
+
+    function mostraDebug(msg) {
+      debug.innerHTML = msg;
+    }
 
     function mostraProxima() {
-      var url = base + imagens[idx];
-      var debug = document.getElementById('debug');
-      var img = document.getElementById('mainImage');
+      if (imagens.length === 0) {
+        mostraDebug('Nenhuma imagem na lista');
+        return;
+      }
 
-      debug.innerHTML = 'Tentando: ' + imagens[idx];
+      var nome = imagens[idx];
+      var url = baseUrl + nome;
+
+      mostraDebug('Tentando: ' + nome + '<br>Posição: ' + (idx+1) + '/' + imagens.length);
 
       var tester = new Image();
       tester.onload = function() {
-        img.src = url;
-        debug.innerHTML = 'Mostrando: ' + imagens[idx];
+        imgElement.src = url;
+        mostraDebug('Mostrando: ' + nome);
         idx = (idx + 1) % imagens.length;
       };
       tester.onerror = function() {
-        debug.innerHTML = 'Não encontrado: ' + imagens[idx] + ' → pulando';
+        mostraDebug('Falhou: ' + nome + ' → pulando');
         idx = (idx + 1) % imagens.length;
-        setTimeout(mostraProxima, 400); // tenta próxima rápido
+        setTimeout(mostraProxima, 600); // tenta próxima rápido
       };
       tester.src = url;
     }
 
-    // Começa agora
+    function atualizarListaImagens() {
+      mostraDebug('Atualizando lista de imagens (a cada 50 min)...');
+
+      var xhr = new XMLHttpRequest();
+      xhr.open('GET', baseUrl + 'index.html?t=' + new Date().getTime(), true);
+      xhr.onreadystatechange = function() {
+        if (xhr.readyState === 4) {
+          if (xhr.status === 200) {
+            var html = xhr.responseText;
+            var novasImagens = [];
+
+            // Procura por padrões de imagens no HTML (ou qualquer string)
+            var re = /(latest-screenshot\.png|screenshot-\d{3}\.png)/gi;
+            var match;
+            while ((match = re.exec(html)) !== null) {
+              var nome = match[1].toLowerCase();
+              if (novasImagens.indexOf(nome) === -1) {
+                novasImagens.push(nome);
+              }
+            }
+
+            if (novasImagens.length > 0) {
+              imagens = novasImagens.sort(); // ordena alfabeticamente
+              mostraDebug('Lista atualizada! ' + imagens.length + ' imagens encontradas.');
+            } else {
+              mostraDebug('Nenhuma imagem encontrada na atualização.');
+            }
+          } else {
+            mostraDebug('Falha ao atualizar lista (status ' + xhr.status + ')');
+          }
+        }
+      };
+      xhr.send();
+    }
+
+    // Inicia
     mostraProxima();
 
-    // Troca automática a cada 5 minutos
-    setInterval(mostraProxima, tempo);
+    // Troca normal a cada 5 min
+    setInterval(mostraProxima, tempoTroca);
+
+    // Atualiza lista a cada 50 min
+    setInterval(atualizarListaImagens, tempoAtualizaLista);
+
+    // Primeira atualização após 2 minutos (para pegar mudanças recentes)
+    setTimeout(atualizarListaImagens, 2 * 60 * 1000);
   </script>
 
 </body>
