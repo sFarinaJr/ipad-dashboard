@@ -8,7 +8,7 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
-  <meta http-equiv="refresh" content="300">
+  <meta http-equiv="refresh" content="300"> <!-- backup: recarrega a cada 5 min -->
 
   <title>Dashboard</title>
 
@@ -24,13 +24,14 @@
       width: 100%;
       background: #000;
       overflow: hidden;
-      font-family: sans-serif; /* Fallback para navegadores antigos */
+      font-family: sans-serif;
     }
 
-    img {
+    #mainImage {
       width: 100%;
       height: 100%;
       display: block;
+      object-fit: contain; /* evita distorção em telas antigas */
     }
 
     .progress-container {
@@ -49,7 +50,6 @@
       right: 0;
       bottom: 0;
       left: 0;
-      /* Degradê com prefixo para compatibilidade antiga (WebKit/Safari velho) */
       background: -webkit-linear-gradient(left, #4a90e2, #f39c12 60%, #e74c3c);
       background: linear-gradient(to right, #4a90e2, #f39c12 60%, #e74c3c);
     }
@@ -59,7 +59,7 @@
       top: 0;
       bottom: 0;
       left: 0;
-      background: #000;           /* barra preta que some da esquerda para direita */
+      background: #000;
       width: 100%;
       -webkit-animation: shrinkLeftToRight 300s linear forwards infinite;
       animation: shrinkLeftToRight 300s linear forwards infinite;
@@ -67,21 +67,13 @@
     }
 
     @-webkit-keyframes shrinkLeftToRight {
-      from {
-        width: 100%;
-      }
-      to {
-        width: 0%;
-      }
+      from { width: 100%; }
+      to   { width: 0%; }
     }
 
     @keyframes shrinkLeftToRight {
-      from {
-        width: 100%;
-      }
-      to {
-        width: 0%;
-      }
+      from { width: 100%; }
+      to   { width: 0%; }
     }
 
     .scale {
@@ -90,7 +82,7 @@
       right: 0;
       bottom: 0;
       left: 0;
-      display: -webkit-box; /* Prefixo para flex em navegadores antigos */
+      display: -webkit-box;
       display: -moz-box;
       display: -ms-flexbox;
       display: -webkit-flex;
@@ -119,7 +111,6 @@
       text-shadow: 0 0 4px black, 1px 1px 2px black;
     }
 
-    /* Ordem correta: 5 (esquerda) → 1 (direita) */
     .scale span {
       -webkit-flex: 1;
       -moz-flex: 1;
@@ -129,35 +120,72 @@
     }
 
     @media (orientation: landscape) {
-      .scale {
-        font-size: 13px;
-      }
-      .progress-container {
-        height: 26px;
-      }
+      .scale { font-size: 13px; }
+      .progress-container { height: 26px; }
     }
   </style>
 </head>
 <body>
 
-  <img src="https://raw.githubusercontent.com/sfarinajr/ipad-dashboard/main/latest-screenshot.png" alt="Dashboard">
+  <img id="mainImage" src="" alt="Dashboard">
 
   <div class="progress-container">
-    <!-- Fundo com degradê fixo -->
     <div class="progress-bg"></div>
-    
-    <!-- Máscara preta que revela o tempo restante da esquerda para direita -->
     <div class="progress-mask"></div>
-    
-    <!-- Escala com numeração correta: 5 ←───→ 1 -->
     <div class="scale">
-      <span>5</span>
-      <span>4</span>
-      <span>3</span>
-      <span>2</span>
-      <span>1</span>
+      <span>5</span><span>4</span><span>3</span><span>2</span><span>1</span>
     </div>
   </div>
+
+  <script>
+    // Configurações
+    var totalImagens = 10;
+    var tempoTroca   = 5 * 60 * 1000; // 5 minutos em milissegundos
+
+    // Começa do número 1
+    var indiceAtual = 1;
+
+    function formatarNumero(n) {
+      return (n < 10 ? '0' : '') + n;
+    }
+
+    function getProximaImagem() {
+      var tentativas = 0;
+      while (tentativas < totalImagens) {
+        var num = formatarNumero(indiceAtual);
+        var url = "screenshot-" + num + ".png";
+        
+        // Testa se a imagem existe (método compatível com iOS 9)
+        var imgTeste = new Image();
+        imgTeste.onload = function() {
+          // Imagem existe → usa ela
+          document.getElementById("mainImage").src = url;
+          // Avança para próxima (para a próxima chamada)
+          indiceAtual++;
+          if (indiceAtual > totalImagens) indiceAtual = 1;
+        };
+        imgTeste.onerror = function() {
+          // Imagem não existe → tenta a próxima
+          indiceAtual++;
+          if (indiceAtual > totalImagens) indiceAtual = 1;
+          getProximaImagem(); // tenta novamente
+        };
+        imgTeste.src = url; // dispara a verificação
+
+        // Para evitar loop infinito no mesmo tick
+        return;
+      }
+    }
+
+    // Inicia a primeira imagem
+    getProximaImagem();
+
+    // Troca automaticamente a cada 5 minutos
+    setInterval(function() {
+      getProximaImagem();
+    }, tempoTroca);
+
+  </script>
 
 </body>
 </html>
