@@ -8,7 +8,11 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
+  <!-- Recarrega a página automaticamente a cada 300 segundos (5 minutos) -->
+  <meta http-equiv="refresh" content="300">
+  
   <title>Dashboard</title>
+  
   <style>
     * {
       margin: 0;
@@ -29,21 +33,37 @@
       object-fit: contain;
       display: block;
     }
-    /* Área da barra + números */
+    
+    /* Barra de progresso fixa na parte inferior */
     .progress-container {
       position: fixed;
       bottom: 0;
       left: 0;
       right: 0;
-      height: 24px; /* altura para caber os números confortavelmente */
+      height: 24px;
       background: rgba(40, 40, 50, 0.7);
       z-index: 100;
     }
+    
     .progress-bar {
       height: 100%;
       background: #4a90e2;
       width: 100%;
+      /* Animação com prefixo -webkit- para compatibilidade iOS 9 */
+      -webkit-animation: drain 300s linear infinite;
+      animation: drain 300s linear infinite;
     }
+    
+    @-webkit-keyframes drain {
+      from { width: 100%; }
+      to   { width: 0%; }
+    }
+    
+    @keyframes drain {
+      from { width: 100%; }
+      to   { width: 0%; }
+    }
+    
     /* Números sobrepostos na barra */
     .scale {
       position: absolute;
@@ -58,41 +78,26 @@
       user-select: none;
       z-index: 101;
     }
+    
     .scale span {
       flex: 1;
       text-align: center;
-      text-shadow: 0 0 3px rgba(255,255,255,0.6); /* leve sombra branca para contraste */
+      text-shadow: 0 0 3px rgba(255,255,255,0.6);
     }
-    /* Prompt de fullscreen */
-    #fullscreen-prompt {
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.75);
-      color: #eee;
-      font-size: min(9vw, 42px);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 9999;
-      pointer-events: all;
-      user-select: none;
-    }
+    
     @media (orientation: landscape) {
-      #fullscreen-prompt {
-        font-size: min(6vw, 36px);
-      }
       .scale {
         font-size: 12px;
       }
     }
   </style>
 </head>
-<body ontouchstart="">
-  <img id="screenshot"
-       src="https://raw.githubusercontent.com/sfarinajr/ipad-dashboard/main/latest-screenshot.png"
+<body>
+  <img src="https://raw.githubusercontent.com/sfarinajr/ipad-dashboard/main/latest-screenshot.png"
        alt="Dashboard">
+  
   <div class="progress-container">
-    <div class="progress-bar" id="progress"></div>
+    <div class="progress-bar"></div>
     <div class="scale">
       <span>1</span>
       <span>2</span>
@@ -101,49 +106,5 @@
       <span>5</span>
     </div>
   </div>
-  <div id="fullscreen-prompt" onclick="enterFullscreen(); this.style.display='none';">
-    Toque na tela para ativar tela cheia
-  </div>
-  <script>
-    const INTERVAL_MS = 5 * 60 * 1000; // 300000 ms
-    const img = document.getElementById('screenshot');
-    const progressBar = document.getElementById('progress');
-    function updateImage() {
-      // Reset barra para 100% sem transição
-      progressBar.style.transition = 'none';
-      progressBar.style.width = '100%';
-      progressBar.offsetWidth; // Força reflow (essencial em browsers antigos como iOS 9)
-
-      // Inicia esvaziamento em 300 segundos
-      progressBar.style.transition = 'width linear 300s';
-      progressBar.style.width = '0%';
-
-      // Atualiza imagem com cache busting
-      const ts = new Date().getTime(); // Use getTime() para compatibilidade
-      img.src = ''; // Limpa src para forçar reload completo
-      img.src = 'https://raw.githubusercontent.com/sfarinajr/ipad-dashboard/main/latest-screenshot.png?t=' + ts;
-    }
-    function enterFullscreen() {
-      const elem = document.documentElement;
-      if (elem.requestFullscreen) {
-        elem.requestFullscreen();
-      } else if (elem.webkitRequestFullscreen) {
-        elem.webkitRequestFullscreen(Element.ALLOW_KEYBOARD_INPUT);
-      }
-    }
-    // Inicialização
-    updateImage();
-    setInterval(updateImage, INTERVAL_MS);
-    // Fullscreen na primeira interação
-    document.addEventListener('touchend', () => {
-      enterFullscreen();
-    }, { once: true });
-    // Mostra prompt se sair do fullscreen
-    document.addEventListener('webkitfullscreenchange', () => {
-      if (!document.webkitFullscreenElement) {
-        document.getElementById('fullscreen-prompt').style.display = 'flex';
-      }
-    });
-  </script>
 </body>
 </html>
