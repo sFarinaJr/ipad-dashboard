@@ -8,11 +8,10 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
-  <!-- Recarrega a página automaticamente a cada 300 segundos (5 minutos) -->
   <meta http-equiv="refresh" content="300">
-  
+
   <title>Dashboard</title>
-  
+
   <style>
     * {
       margin: 0;
@@ -24,8 +23,7 @@
       width: 100%;
       background: #000;
       overflow: hidden;
-      touch-action: manipulation;
-      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+      font-family: -apple-system, sans-serif;
     }
     img {
       width: 100%;
@@ -33,61 +31,67 @@
       object-fit: contain;
       display: block;
     }
-    
-    /* Barra de progresso fixa na parte inferior */
+
+    /* Barra de progresso */
     .progress-container {
       position: fixed;
       bottom: 0;
       left: 0;
       right: 0;
-      height: 24px;
-      background: rgba(40, 40, 50, 0.7);
+      height: 28px;          /* um pouco mais alta para melhor legibilidade */
+      background: #222;
       z-index: 100;
     }
-    
+
     .progress-bar {
       height: 100%;
-      background: #4a90e2;
       width: 100%;
-      /* Animação com prefixo -webkit- para compatibilidade iOS 9 */
+      background: linear-gradient(to right, #4a90e2, #f39c12, #e74c3c);
+      /* Começa azul → laranja → vermelho */
       -webkit-animation: drain 300s linear infinite;
       animation: drain 300s linear infinite;
     }
-    
+
     @-webkit-keyframes drain {
       from { width: 100%; }
       to   { width: 0%; }
     }
-    
+
     @keyframes drain {
       from { width: 100%; }
       to   { width: 0%; }
     }
-    
-    /* Números sobrepostos na barra */
+
+    /* Números 5 4 3 2 1 */
     .scale {
       position: absolute;
       inset: 0;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      color: #000;
-      font-size: 13px;
+      color: white;
+      font-size: 14px;
       font-weight: bold;
       pointer-events: none;
       user-select: none;
       z-index: 101;
+      padding: 0 8px;
+      box-sizing: border-box;
     }
-    
+
     .scale span {
       flex: 1;
       text-align: center;
-      text-shadow: 0 0 3px rgba(255,255,255,0.6);
+      text-shadow: 0 0 4px black, 1px 1px 2px black;
     }
-    
+
+    /* Ajuste fino em orientação landscape */
     @media (orientation: landscape) {
       .scale {
-        font-size: 12px;
+        font-size: 13px;
+      }
+      .progress-container {
+        height: 26px;
       }
     }
   </style>
@@ -95,15 +99,15 @@
 <body>
   <img src="https://raw.githubusercontent.com/sfarinajr/ipad-dashboard/main/latest-screenshot.png"
        alt="Dashboard">
-  
+
   <div class="progress-container">
     <div class="progress-bar"></div>
     <div class="scale">
-      <span>1</span>
-      <span>2</span>
-      <span>3</span>
-      <span>4</span>
       <span>5</span>
+      <span>4</span>
+      <span>3</span>
+      <span>2</span>
+      <span>1</span>
     </div>
   </div>
 </body>
