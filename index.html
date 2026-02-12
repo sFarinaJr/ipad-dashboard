@@ -31,28 +31,60 @@
       display: block;
     }
 
-    /* Barra de progresso inferior */
-    .progress-container {
+    /* Container da barra + escala */
+    .progress-wrapper {
       position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 24px;          /* altura maior para caber os números */
+      z-index: 100;
+    }
+
+    .progress-container {
+      position: absolute;
       bottom: 0;
       left: 0;
       right: 0;
       height: 6px;
       background: rgba(40, 40, 50, 0.7);
-      z-index: 100;
     }
+
     .progress-bar {
       height: 100%;
       width: 100%;
       background: #4a90e2;
       transform: scaleX(1);
       transform-origin: left;
-      transition: transform linear 300s;   /* 300 segundos = 5 minutos */
+      transition: transform linear 300s;
       will-change: transform;
     }
+
     .progress-bar.reset {
-      transition: none;                    /* remove transição durante reset */
+      transition: none;
       transform: scaleX(1);
+    }
+
+    /* Escala de 1 a 5 (minutos restantes aproximados) */
+    .scale {
+      position: absolute;
+      bottom: 8px;           /* acima da barra */
+      left: 0;
+      right: 0;
+      height: 16px;
+      display: flex;
+      justify-content: space-between;
+      color: #aaa;
+      font-size: 11px;
+      font-weight: bold;
+      pointer-events: none;
+      user-select: none;
+    }
+
+    .scale span {
+      flex: 1;
+      text-align: center;
+      opacity: 0.8;
     }
 
     /* Prompt de fullscreen */
@@ -74,6 +106,9 @@
       #fullscreen-prompt {
         font-size: min(6vw, 36px);
       }
+      .scale {
+        font-size: 10px;
+      }
     }
   </style>
 </head>
@@ -83,8 +118,17 @@
        src="https://raw.githubusercontent.com/sfarinajr/ipad-dashboard/main/latest-screenshot.png" 
        alt="Dashboard">
 
-  <div class="progress-container">
-    <div class="progress-bar" id="progress"></div>
+  <div class="progress-wrapper">
+    <div class="scale">
+      <span>5</span>
+      <span>4</span>
+      <span>3</span>
+      <span>2</span>
+      <span>1</span>
+    </div>
+    <div class="progress-container">
+      <div class="progress-bar" id="progress"></div>
+    </div>
   </div>
 
   <div id="fullscreen-prompt" onclick="enterFullscreen(); this.style.display='none';">
@@ -100,12 +144,12 @@
       const ts = Date.now();
       img.src = `https://raw.githubusercontent.com/sfarinajr/ipad-dashboard/main/latest-screenshot.png?t=${ts}`;
       
-      // Reset da barra: força volta a 100% instantaneamente
+      // Reset da barra para 100%
       progressBar.classList.add('reset');
-      progressBar.offsetWidth; // força reflow
+      progressBar.offsetWidth; // força reflow no iOS antigo
       progressBar.classList.remove('reset');
       
-      // Agora aplica a transição de 300s para esvaziar
+      // Inicia contagem regressiva linear de 300s
       progressBar.style.transition = 'transform linear 300s';
       progressBar.style.transform = 'scaleX(0)';
     }
@@ -119,19 +163,17 @@
       }
     }
 
-    // ─── Inicialização ────────────────────────────────────────
-    // Carrega primeira imagem e inicia barra cheia → esvaziando em 5 min
-    updateImage();
+    // Inicialização
+    updateImage();  // carrega + inicia barra cheia → diminuindo
 
-    // Atualiza a cada 5 minutos exatos
     setInterval(updateImage, INTERVAL_MS);
 
-    // Tenta fullscreen na primeira interação real
+    // Fullscreen na primeira interação
     document.addEventListener('touchend', () => {
       enterFullscreen();
     }, { once: true });
 
-    // Mostra prompt novamente se sair do fullscreen
+    // Mostra prompt se sair do fullscreen (iOS antigo usa webkit)
     document.addEventListener('webkitfullscreenchange', () => {
       if (!document.webkitFullscreenElement) {
         document.getElementById('fullscreen-prompt').style.display = 'flex';
