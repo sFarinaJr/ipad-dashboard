@@ -47,6 +47,135 @@
     .progress-bg {
       position: absolute;
       inset: 0;
+      /* Degradê: azul (esquerda = 5 min restantes) → vermelho (direita = quase 0) */
+      background: linear-gradient(to right, #4a90e2, #f39c12 60%, #e74c3c);
+    }
+
+    .progress-mask {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      background: #000;           /* barra preta que some da esquerda para direita */
+      width: 100%;
+      animation: shrinkLeftToRight 300s linear forwards infinite;
+      z-index: 1;
+    }
+
+    @keyframes shrinkLeftToRight {
+      from {
+        width: 100%;
+      }
+      to {
+        width: 0%;
+      }
+    }
+
+    .scale {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      color: white;
+      font-size: 14px;
+      font-weight: bold;
+      pointer-events: none;
+      user-select: none;
+      z-index: 101;
+      padding: 0 8px;
+      box-sizing: border-box;
+      text-shadow: 0 0 4px black, 1px 1px 2px black;
+    }
+
+    /* Ordem correta: 5 (esquerda) → 1 (direita) */
+    .scale span:nth-child(1) { flex: 1; text-align: center; }
+    .scale span:nth-child(2) { flex: 1; text-align: center; }
+    .scale span:nth-child(3) { flex: 1; text-align: center; }
+    .scale span:nth-child(4) { flex: 1; text-align: center; }
+    .scale span:nth-child(5) { flex: 1; text-align: center; }
+
+    @media (orientation: landscape) {
+      .scale {
+        font-size: 13px;
+      }
+      .progress-container {
+        height: 26px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <img src="https://raw.githubusercontent.com/sfarinajr/ipad-dashboard/main/latest-screenshot.png" alt="Dashboard">
+
+  <div class="progress-container">
+    <!-- Fundo com degradê fixo -->
+    <div class="progress-bg"></div>
+    
+    <!-- Máscara preta que revela o tempo restante da esquerda para direita -->
+    <div class="progress-mask"></div>
+    
+    <!-- Escala com numeração correta: 5 ←───→ 1 -->
+    <div class="scale">
+      <span>5</span>
+      <span>4</span>
+      <span>3</span>
+      <span>2</span>
+      <span>1</span>
+    </div>
+  </div>
+
+</body>
+</html><!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <meta http-equiv="refresh" content="300">
+
+  <title>Dashboard</title>
+
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      border: 0;
+    }
+
+    html, body {
+      height: 100%;
+      width: 100%;
+      background: #000;
+      overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+    }
+
+    .progress-container {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 28px;
+      background: #222;
+      z-index: 100;
+    }
+
+    .progress-bg {
+      position: absolute;
+      inset: 0;
       /* Degradê: vermelho (1) esquerda → azul (5) direita */
       background: linear-gradient(to right, #e74c3c, #f39c12 40%, #4a90e2);
     }
