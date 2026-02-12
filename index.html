@@ -32,9 +32,9 @@
     .progress-bar {
       height:100%;
       width:100%;
-      /* Degradê invertido: começa vermelho à esquerda, termina azul à direita */
-      background: linear-gradient(to right, #e74c3c, #f39c12, #4a90e2);
-      /* Animação invertida: encolhe da direita para a esquerda */
+      /* Degradê: azul (cheio) na esquerda → vermelho (vazio) na direita */
+      background: linear-gradient(to right, #4a90e2, #f39c12 60%, #e74c3c);
+      /* Animação: encolhe da direita para a esquerda */
       transform-origin: right center;
       -webkit-animation: drain 300s linear infinite;
       animation: drain 300s linear infinite;
@@ -75,7 +75,11 @@
   <div class="progress-container">
     <div class="progress-bar"></div>
     <div class="scale">
-      <span>5</span><span>4</span><span>3</span><span>2</span><span>1</span>
+      <span>1</span>
+      <span>2</span>
+      <span>3</span>
+      <span>4</span>
+      <span>5</span>
     </div>
   </div>
 </body>
