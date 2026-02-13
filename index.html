@@ -82,7 +82,7 @@
 </div>
 
 <script>
-var apiUrl = 'https://api.github.com/repos/sfarinajr/ipad-dashboard/contents/';
+var pageUrl = 'https://github.com/sfarinajr/ipad-dashboard/tree/main';
 var rawBase = 'https://raw.githubusercontent.com/sfarinajr/ipad-dashboard/main/';
 
 var imagens = [];
@@ -97,20 +97,22 @@ function mostraDebug(msg) {
 }
 
 function carregarLista(callback) {
-  mostraDebug('Lendo imagens do GitHub...');
+  mostraDebug('Lendo arquivos do repositorio...');
 
   var xhr = new XMLHttpRequest();
-  xhr.open('GET', apiUrl + '?t=' + new Date().getTime(), true);
+  xhr.open('GET', pageUrl + '?t=' + new Date().getTime(), true);
 
   xhr.onreadystatechange = function() {
     if (xhr.readyState === 4 && xhr.status === 200) {
 
-      var data = JSON.parse(xhr.responseText);
+      var html = xhr.responseText;
       var novas = [];
+      var re = /href="[^"]*\/blob\/main\/([^"]+\.png)"/gi;
+      var match;
 
-      for (var i = 0; i < data.length; i++) {
-        var nome = data[i].name.toLowerCase();
-        if (nome.indexOf('.png') !== -1) {
+      while ((match = re.exec(html)) !== null) {
+        var nome = match[1];
+        if (novas.indexOf(nome) === -1) {
           novas.push(nome);
         }
       }
@@ -118,10 +120,10 @@ function carregarLista(callback) {
       if (novas.length > 0) {
         imagens = novas.sort();
         idx = 0;
-        mostraDebug('Encontradas ' + imagens.length + ' imagens');
+        mostraDebug('Total de imagens: ' + imagens.length);
         callback();
       } else {
-        mostraDebug('Nenhuma imagem encontrada, tentando novamente...');
+        mostraDebug('Nao conseguiu ler lista, tentando novamente...');
         setTimeout(function(){ carregarLista(callback); }, 30000);
       }
     }
@@ -132,10 +134,8 @@ function carregarLista(callback) {
 
 function mostrarImagemAtual() {
   var nome = imagens[idx];
-  var url = rawBase + nome;
-
+  imgElement.src = rawBase + nome;
   mostraDebug('Imagem ' + (idx+1) + ' de ' + imagens.length + ' - ' + nome);
-  imgElement.src = url;
 }
 
 function proximaImagem() {
