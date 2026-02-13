@@ -5,9 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <meta http-equiv="Pragma" content="no-cache">
-  <meta http-equiv="Expires" content="0">
 
   <title>Dashboard</title>
 
@@ -24,7 +21,6 @@
       object-fit:contain;
     }
 
-    /* FAIXA AZUL TOTAL + TEXTO DESLOCADO */
     #debug {
       position:fixed;
       top:0; left:0; right:0;
@@ -86,10 +82,11 @@
 </div>
 
 <script>
-var baseUrl = 'https://raw.githubusercontent.com/sfarinajr/ipad-dashboard/main/';
+var apiUrl = 'https://api.github.com/repos/sfarinajr/ipad-dashboard/contents/';
+var rawBase = 'https://raw.githubusercontent.com/sfarinajr/ipad-dashboard/main/';
+
 var imagens = [];
 var idx = 0;
-
 var tempoTroca = 5 * 60 * 1000;
 
 var debug = document.getElementById('debug');
@@ -100,22 +97,20 @@ function mostraDebug(msg) {
 }
 
 function carregarLista(callback) {
-  mostraDebug('Lendo imagens do repositorio...');
+  mostraDebug('Lendo imagens do GitHub...');
 
   var xhr = new XMLHttpRequest();
-  xhr.open('GET', baseUrl + 'index.html?t=' + new Date().getTime(), true);
+  xhr.open('GET', apiUrl + '?t=' + new Date().getTime(), true);
 
   xhr.onreadystatechange = function() {
     if (xhr.readyState === 4 && xhr.status === 200) {
 
-      var html = xhr.responseText;
+      var data = JSON.parse(xhr.responseText);
       var novas = [];
-      var re = /href="([^"]+\.png)"/gi;
-      var match;
 
-      while ((match = re.exec(html)) !== null) {
-        var nome = match[1].toLowerCase();
-        if (novas.indexOf(nome) === -1) {
+      for (var i = 0; i < data.length; i++) {
+        var nome = data[i].name.toLowerCase();
+        if (nome.indexOf('.png') !== -1) {
           novas.push(nome);
         }
       }
@@ -123,10 +118,10 @@ function carregarLista(callback) {
       if (novas.length > 0) {
         imagens = novas.sort();
         idx = 0;
-        mostraDebug('Total de imagens: ' + imagens.length);
+        mostraDebug('Encontradas ' + imagens.length + ' imagens');
         callback();
       } else {
-        mostraDebug('Falha ao obter lista, tentando novamente...');
+        mostraDebug('Nenhuma imagem encontrada, tentando novamente...');
         setTimeout(function(){ carregarLista(callback); }, 30000);
       }
     }
@@ -136,13 +131,10 @@ function carregarLista(callback) {
 }
 
 function mostrarImagemAtual() {
-  if (imagens.length === 0) return;
-
   var nome = imagens[idx];
-  var url = baseUrl + nome;
+  var url = rawBase + nome;
 
   mostraDebug('Imagem ' + (idx+1) + ' de ' + imagens.length + ' - ' + nome);
-
   imgElement.src = url;
 }
 
