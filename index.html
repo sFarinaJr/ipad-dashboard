@@ -23,13 +23,6 @@
       width:100%; height:100%; display:block;
       object-fit:contain;
     }
-    #debug {
-      position:fixed; bottom:36px; right:8px; z-index:999;
-      background:rgba(0,0,0,0.7); padding:6px 10px;
-      font-size:13px; font-family:monospace;
-      max-width:80%; line-height:1.3;
-      text-align:right;
-    }
     .progress-container {
       position:fixed; bottom:0; left:0; right:0; height:28px;
       background:#222; z-index:100;
@@ -51,18 +44,17 @@
     .scale {
       position:absolute; top:0; right:0; bottom:0; left:0;
       display:-webkit-box; display:flex;
-      -webkit-justify-content:space-between; justify-content:space-between;
+      -webkit-justify-content:center; justify-content:center;
       -webkit-align-items:center; align-items:center;
       color:white; font-size:14px; font-weight:bold;
       pointer-events:none; user-select:none; z-index:101;
       padding:0 8px; box-sizing:border-box;
       text-shadow:0 0 4px #000;
     }
-    .scale span { -webkit-flex:1; flex:1; text-align:center; }
+    .scale span { -webkit-flex:none; flex:none; text-align:center; }
     @media (orientation:landscape) {
       .scale { font-size:13px; }
       .progress-container { height:26px; }
-      #debug { font-size:12px; bottom:34px; }
     }
   </style>
 </head>
@@ -70,40 +62,27 @@
 
   <img id="mainImage" src="" alt="Dashboard">
 
-  <div id="debug">Iniciando...</div>
-
   <div class="progress-container">
     <div class="progress-bg"></div>
     <div class="progress-mask"></div>
     <div class="scale">
-      <span>5</span><span>4</span><span>3</span><span>2</span><span>1</span>
+      <span id="status">Iniciando...</span>
     </div>
   </div>
 
   <script>
     var baseUrl = 'https://raw.githubusercontent.com/sfarinajr/ipad-dashboard/main/';
-    var imagens = [
-      'latest-screenshot.png',
-      'screenshot-003.png',
-      'screenshot-004.png',
-      'screenshot-005.png',
-      'screenshot-006.png',
-      'screenshot-007.png',
-      'screenshot-008.png',
-      'screenshot-009.png',
-      'screenshot-010.png',
-      'screenshot-011.png',
-      'screenshot-012.png'
-    ];
+    var apiUrl = 'https://api.github.com/repos/sfarinajr/ipad-dashboard/contents/';
+    var imagens = [];
     var idx = 0;
     var tempoTroca = 5 * 60 * 1000;       // 5 minutos
     var tempoAtualizaLista = 50 * 60 * 1000; // 50 minutos
 
-    var debug = document.getElementById('debug');
+    var status = document.getElementById('status');
     var imgElement = document.getElementById('mainImage');
 
     function mostraDebug(msg) {
-      debug.innerHTML = msg;
+      status.innerHTML = msg;
     }
 
     function mostraProxima() {
@@ -115,7 +94,7 @@
       var nome = imagens[idx];
       var url = baseUrl + nome;
 
-      mostraDebug('Mostrando:<br>' + nome + '<br>(' + (idx+1) + '/' + imagens.length + ')');
+      mostraDebug('Mostrando: ' + nome + ' (' + (idx+1) + '/' + imagens.length + ')');
 
       var tester = new Image();
       tester.onload = function() {
@@ -123,7 +102,7 @@
         idx = (idx + 1) % imagens.length;
       };
       tester.onerror = function() {
-        mostraDebug('Falhou:<br>' + nome + '<br>→ pulando');
+        mostraDebug('Falhou: ' + nome + ' → pulando');
         idx = (idx + 1) % imagens.length;
         setTimeout(mostraProxima, 800); // tenta próxima rápido
       };
@@ -131,49 +110,48 @@
     }
 
     function atualizarListaImagens() {
-      mostraDebug('Atualizando lista<br>(a cada 50 min)...');
+      mostraDebug('Atualizando lista (a cada 50 min)...');
 
       var xhr = new XMLHttpRequest();
-      xhr.open('GET', baseUrl + 'index.html?t=' + new Date().getTime(), true);
+      xhr.open('GET', apiUrl + '?t=' + new Date().getTime(), true);
       xhr.onreadystatechange = function() {
         if (xhr.readyState === 4) {
           if (xhr.status === 200) {
-            var html = xhr.responseText;
+            var data = JSON.parse(xhr.responseText);
             var novasImagens = [];
-            var re = /(latest-screenshot\.png|screenshot-\d{3}\.png)/gi;
-            var match;
-            while ((match = re.exec(html)) !== null) {
-              var nome = match[1].toLowerCase();
-              if (novasImagens.indexOf(nome) === -1) {
-                novasImagens.push(nome);
+            for (var i = 0; i < data.length; i++) {
+              var nome = data[i].name.toLowerCase();
+              if (nome.match(/^(latest-screenshot|screenshot-\d{3})\.png$/)) {
+                if (novasImagens.indexOf(nome) === -1) {
+                  novasImagens.push(nome);
+                }
               }
             }
 
             if (novasImagens.length > 0) {
               imagens = novasImagens.sort();
-              mostraDebug('Lista atualizada!<br>' + imagens.length + ' imagens');
+              idx = 0; // Reinicia o índice após atualização
+              mostraDebug('Lista atualizada! ' + imagens.length + ' imagens');
+              setTimeout(mostraProxima, 2000); // Mostra a primeira após breve delay
             } else {
               mostraDebug('Nenhuma imagem encontrada');
             }
           } else {
-            mostraDebug('Falha atualização<br>status ' + xhr.status);
+            mostraDebug('Falha atualização status ' + xhr.status);
           }
         }
       };
       xhr.send();
     }
 
-    // Início
-    mostraProxima();
+    // Início: atualiza lista imediatamente
+    atualizarListaImagens();
 
     // Troca de imagem normal
     setInterval(mostraProxima, tempoTroca);
 
-    // Atualiza lista de imagens raramente
+    // Atualiza lista de imagens a cada 50 minutos
     setInterval(atualizarListaImagens, tempoAtualizaLista);
-
-    // Primeira checagem um pouco mais cedo
-    setTimeout(atualizarListaImagens, 3 * 60 * 1000);
 
   </script>
 
