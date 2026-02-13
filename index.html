@@ -1,90 +1,75 @@
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
-  <title>Dashboard</title>
+<title>Dashboard</title>
 
-  <style>
-    * { margin:0; padding:0; border:0; }
-    html, body {
-      height:100%; width:100%;
-      background:#000; overflow:hidden;
-      font-family:sans-serif;
-      color:#fff;
-    }
+<style>
+* { margin:0; padding:0; border:0; }
+html, body {
+  height:100%; width:100%;
+  background:#000; overflow:hidden;
+  font-family:sans-serif;
+}
 
-    #mainImage {
-      width:100%; height:100%; display:block;
-      object-fit:contain;
-    }
+#mainImage {
+  width:100%; height:100%; display:block;
+  object-fit:contain;
+}
 
-    #debug {
-      position:fixed;
-      top:0; left:0; right:0;
-      z-index:999;
-      background:#0b5ed7;
-      color:#fff;
-      padding:6px 10px 6px 120px;
-      font-size:13px;
-      font-family:monospace;
-      white-space:nowrap;
-      overflow:hidden;
-      text-overflow:ellipsis;
-    }
+#debug {
+  position:fixed;
+  top:0; left:0; right:0;
+  z-index:999;
+  background:#0b5ed7;
+  color:#fff;
+  padding:6px 10px 6px 120px;
+  font-size:13px;
+  font-family:monospace;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
 
-    #listaTeste {
-      position:fixed;
-      top:50%;
-      left:50%;
-      transform:translate(-50%, -50%);
-      text-align:center;
-      font-size:20px;
-      line-height:28px;
-      z-index:500;
-    }
+.progress-container {
+  position:fixed; bottom:0; left:0; right:0; height:28px;
+  background:#222; z-index:100;
+}
+.progress-bg {
+  position:absolute; top:0; right:0; bottom:0; left:0;
+  background: -webkit-linear-gradient(left, #4a90e2, #f39c12 60%, #e74c3c);
+  background: linear-gradient(to right, #4a90e2, #f39c12 60%, #e74c3c);
+}
+.progress-mask {
+  position:absolute; top:0; bottom:0; left:0; background:#000;
+  width:100%;
+  -webkit-animation: shrink 300s linear infinite;
+  animation: shrink 300s linear infinite;
+  z-index:1;
+}
+@-webkit-keyframes shrink { from {width:100%} to {width:0%} }
+@keyframes shrink { from {width:100%} to {width:0%} }
 
-    .progress-container {
-      position:fixed; bottom:0; left:0; right:0; height:28px;
-      background:#222; z-index:100;
-    }
-    .progress-bg {
-      position:absolute; top:0; right:0; bottom:0; left:0;
-      background: -webkit-linear-gradient(left, #4a90e2, #f39c12 60%, #e74c3c);
-      background: linear-gradient(to right, #4a90e2, #f39c12 60%, #e74c3c);
-    }
-    .progress-mask {
-      position:absolute; top:0; bottom:0; left:0; background:#000;
-      width:100%;
-      -webkit-animation: shrink 300s linear infinite;
-      animation: shrink 300s linear infinite;
-      z-index:1;
-    }
-    @-webkit-keyframes shrink { from {width:100%} to {width:0%} }
-    @keyframes shrink { from {width:100%} to {width:0%} }
-
-    .scale {
-      position:absolute; top:0; right:0; bottom:0; left:0;
-      display:-webkit-box; display:flex;
-      -webkit-justify-content:space-between; justify-content:space-between;
-      -webkit-align-items:center; align-items:center;
-      color:white; font-size:14px; font-weight:bold;
-      pointer-events:none; z-index:101;
-      padding:0 8px; box-sizing:border-box;
-      text-shadow:0 0 4px #000;
-    }
-    .scale span { -webkit-flex:1; flex:1; text-align:center; }
-  </style>
+.scale {
+  position:absolute; top:0; right:0; bottom:0; left:0;
+  display:-webkit-box; display:flex;
+  -webkit-justify-content:space-between; justify-content:space-between;
+  -webkit-align-items:center; align-items:center;
+  color:white; font-size:14px; font-weight:bold;
+  pointer-events:none; z-index:101;
+  padding:0 8px; box-sizing:border-box;
+  text-shadow:0 0 4px #000;
+}
+.scale span { -webkit-flex:1; flex:1; text-align:center; }
+</style>
 </head>
 <body>
 
 <div id="debug">Iniciando...</div>
-
-<div id="listaTeste"></div>
-
 <img id="mainImage" src="" alt="Dashboard">
 
 <div class="progress-container">
@@ -96,7 +81,7 @@
 </div>
 
 <script>
-var pageUrl = 'https://github.com/sfarinajr/ipad-dashboard/tree/main';
+var indexUrl = 'https://raw.githubusercontent.com/sfarinajr/ipad-dashboard/main/';
 var rawBase = 'https://raw.githubusercontent.com/sfarinajr/ipad-dashboard/main/';
 
 var imagens = [];
@@ -105,53 +90,39 @@ var tempoTroca = 5 * 60 * 1000;
 
 var debug = document.getElementById('debug');
 var imgElement = document.getElementById('mainImage');
-var listaDiv = document.getElementById('listaTeste');
 
-function mostraDebug(msg) {
+function mostraDebug(msg){
   debug.innerHTML = msg;
 }
 
-function carregarLista(callback) {
-  mostraDebug('Lendo arquivos do repositorio...');
+function carregarLista(callback){
+  mostraDebug('Atualizando lista...');
 
   var xhr = new XMLHttpRequest();
-  xhr.open('GET', pageUrl + '?t=' + new Date().getTime(), true);
+  xhr.open('GET', indexUrl + '?t=' + new Date().getTime(), true);
 
-  xhr.onreadystatechange = function() {
-    if (xhr.readyState === 4 && xhr.status === 200) {
+  xhr.onreadystatechange = function(){
+    if(xhr.readyState === 4 && xhr.status === 200){
 
       var html = xhr.responseText;
       var novas = [];
-      var re = /href="[^"]*\/blob\/main\/([^"]+\.png)"/gi;
+      var re = /href="([^"]+\.png)"/gi;
       var match;
 
-      while ((match = re.exec(html)) !== null) {
+      while((match = re.exec(html)) !== null){
         var nome = match[1];
-        if (novas.indexOf(nome) === -1) {
+        if(novas.indexOf(nome) === -1){
           novas.push(nome);
         }
       }
 
-      if (novas.length > 0) {
+      if(novas.length > 0){
         imagens = novas.sort();
         idx = 0;
-
-        // MOSTRAR NOMES NO CENTRO
-        var texto = 'Arquivos encontrados:<br><br>';
-        for (var i = 0; i < imagens.length; i++) {
-          texto += imagens[i] + '<br>';
-        }
-        listaDiv.innerHTML = texto;
-
-        mostraDebug('Mostrando nomes coletados...');
-
-        setTimeout(function(){
-          listaDiv.innerHTML = '';
-          callback();
-        }, 10000);
-
-      } else {
-        mostraDebug('Falha ao obter lista, tentando novamente...');
+        mostraDebug('Total de imagens: ' + imagens.length);
+        callback();
+      }else{
+        mostraDebug('Falha ao ler lista, tentando novamente...');
         setTimeout(function(){ carregarLista(callback); }, 30000);
       }
     }
@@ -160,27 +131,26 @@ function carregarLista(callback) {
   xhr.send();
 }
 
-function mostrarImagemAtual() {
+function mostrarImagem(){
   var nome = imagens[idx];
   imgElement.src = rawBase + nome;
-  mostraDebug('Imagem ' + (idx+1) + ' de ' + imagens.length + ' - ' + nome);
+  mostraDebug('Imagem ' + (idx+1) + '/' + imagens.length + ' - ' + nome);
 }
 
-function proximaImagem() {
+function proxima(){
   idx++;
-
-  if (idx >= imagens.length) {
+  if(idx >= imagens.length){
     carregarLista(function(){
-      mostrarImagemAtual();
+      mostrarImagem();
     });
-  } else {
-    mostrarImagemAtual();
+  }else{
+    mostrarImagem();
   }
 }
 
 carregarLista(function(){
-  mostrarImagemAtual();
-  setInterval(proximaImagem, tempoTroca);
+  mostrarImagem();
+  setInterval(proxima, tempoTroca);
 });
 </script>
 
