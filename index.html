@@ -14,6 +14,7 @@
       height:100%; width:100%;
       background:#000; overflow:hidden;
       font-family:sans-serif;
+      color:#fff;
     }
 
     #mainImage {
@@ -33,6 +34,17 @@
       white-space:nowrap;
       overflow:hidden;
       text-overflow:ellipsis;
+    }
+
+    #listaTeste {
+      position:fixed;
+      top:50%;
+      left:50%;
+      transform:translate(-50%, -50%);
+      text-align:center;
+      font-size:20px;
+      line-height:28px;
+      z-index:500;
     }
 
     .progress-container {
@@ -71,6 +83,8 @@
 
 <div id="debug">Iniciando...</div>
 
+<div id="listaTeste"></div>
+
 <img id="mainImage" src="" alt="Dashboard">
 
 <div class="progress-container">
@@ -91,6 +105,7 @@ var tempoTroca = 5 * 60 * 1000;
 
 var debug = document.getElementById('debug');
 var imgElement = document.getElementById('mainImage');
+var listaDiv = document.getElementById('listaTeste');
 
 function mostraDebug(msg) {
   debug.innerHTML = msg;
@@ -120,10 +135,23 @@ function carregarLista(callback) {
       if (novas.length > 0) {
         imagens = novas.sort();
         idx = 0;
-        mostraDebug('Total de imagens: ' + imagens.length);
-        callback();
+
+        // MOSTRAR NOMES NO CENTRO
+        var texto = 'Arquivos encontrados:<br><br>';
+        for (var i = 0; i < imagens.length; i++) {
+          texto += imagens[i] + '<br>';
+        }
+        listaDiv.innerHTML = texto;
+
+        mostraDebug('Mostrando nomes coletados...');
+
+        setTimeout(function(){
+          listaDiv.innerHTML = '';
+          callback();
+        }, 10000);
+
       } else {
-        mostraDebug('Nao conseguiu ler lista, tentando novamente...');
+        mostraDebug('Falha ao obter lista, tentando novamente...');
         setTimeout(function(){ carregarLista(callback); }, 30000);
       }
     }
