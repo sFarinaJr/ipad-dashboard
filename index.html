@@ -84,24 +84,28 @@ html, body {
 var baseUrl = 'https://raw.githubusercontent.com/sfarinajr/ipad-dashboard/main/';
 var imagens = [];
 var idx = 0;
-var tempoTroca = 5 * 60 * 1000;
+var tempoTroca = 5 * 60 * 1000; // 5 minutos
 
 var debug = document.getElementById('debug');
 var imgElement = document.getElementById('mainImage');
 
-var preloadImg = new Image();
-
-function mostraDebug(msg){
+function mostraDebug(msg) {
   debug.innerHTML = msg;
 }
 
-function pad(n){
-  if(n < 10) return '00' + n;
-  if(n < 100) return '0' + n;
+function pad(n) {
+  if (n < 10) return '00' + n;
+  if (n < 100) return '0' + n;
   return '' + n;
 }
 
-function montarLista(callback){
+function preloadImagem(url) {
+  var img = new Image();
+  img.src = url;
+  // Não precisamos de onload/onerror aqui — só forçar o download para o cache
+}
+
+function montarLista(callback) {
   imagens = [];
   var numero = 1;
   var falhasSeguidas = 0;
@@ -109,72 +113,71 @@ function montarLista(callback){
 
   mostraDebug('Buscando imagens screenshot-...');
 
-  function testar(){
+  function testar() {
     var nome = 'screenshot' + pad(numero) + '.png';
-    var url = baseUrl + nome;
+    var url = baseUrl + nome + '?t=' + new Date().getTime(); // evitar cache antigo
 
     var img = new Image();
 
-    img.onload = function(){
+    img.onload = function() {
+      // Imagem existe → guardar nome e já fazer preload completo
       imagens.push(nome);
+      preloadImagem(baseUrl + nome); // <--- aqui pré-carrega tudo no início
       falhasSeguidas = 0;
       numero++;
       testar();
     };
 
-    img.onerror = function(){
+    img.onerror = function() {
       falhasSeguidas++;
       numero++;
 
-      if(falhasSeguidas >= limiteFalhas){
-        imagens.sort();
-        idx = 0;
-        mostraDebug('Total encontrado: ' + imagens.length);
+      if (falhasSeguidas >= limiteFalhas) {
+        // Terminou de varrer → ordena (por segurança) e inicia
+        imagens.sort(); // garante ordem numérica crescente
+        mostraDebug('Total encontrado: ' + imagens.length + ' imagens. Iniciando...');
         callback();
-      }else{
+      } else {
         testar();
       }
     };
 
-    img.src = url + '?t=' + new Date().getTime();
+    img.src = url;
   }
 
   testar();
 }
 
-function preloadProxima(){
-  var proximo = idx + 1;
-  if(proximo >= imagens.length) return;
-
-  preloadImg.src = baseUrl + imagens[proximo];
-}
-
-function mostrarImagem(){
-  if(imagens.length === 0){
+function mostrarImagem() {
+  if (imagens.length === 0) {
     mostraDebug('Nenhuma imagem encontrada');
     return;
   }
 
   var nome = imagens[idx];
-  imgElement.src = baseUrl + nome;
-  mostraDebug('Imagem ' + (idx+1) + '/' + imagens.length + ' - ' + nome);
+  var url = baseUrl + nome;
 
-  preloadProxima();
+  imgElement.src = url;
+  mostraDebug('Imagem ' + (idx + 1) + '/' + imagens.length + ' - ' + nome);
 }
 
-function proxima(){
+function proxima() {
   idx++;
 
-  if(idx >= imagens.length){
-    montarLista(function(){
+  if (idx >= imagens.length) {
+    // Chegou ao final → recarrega a lista (pode ter novas imagens no repo)
+    montarLista(function() {
+      idx = 0;
       mostrarImagem();
     });
-  }else{
+  } else {
     mostrarImagem();
   }
 }
 
-montarLista(function(){
+// Início
+montarLista(function() {
+  idx = 0;
   mostrarImagem();
   setInterval(proxima, tempoTroca);
 });
