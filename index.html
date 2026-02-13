@@ -89,6 +89,8 @@ var tempoTroca = 5 * 60 * 1000;
 var debug = document.getElementById('debug');
 var imgElement = document.getElementById('mainImage');
 
+var preloadImg = new Image();
+
 function mostraDebug(msg){
   debug.innerHTML = msg;
 }
@@ -101,40 +103,50 @@ function pad(n){
 
 function montarLista(callback){
   imagens = [];
-  var totalTestar = 300;
-  var testados = 0;
+  var numero = 1;
+  var falhasSeguidas = 0;
+  var limiteFalhas = 40;
 
-  mostraDebug('Procurando imagens screenshot-...');
+  mostraDebug('Buscando imagens screenshot-...');
 
-  for(var i=1; i<=totalTestar; i++){
-    (function(i){
-      var nome = 'screenshot-' + pad(i) + '.png';
-      var url = baseUrl + nome;
+  function testar(){
+    var nome = 'screenshot-' + pad(numero) + '.png';
+    var url = baseUrl + nome;
 
-      var img = new Image();
+    var img = new Image();
 
-      img.onload = function(){
-        imagens.push(nome);
-        finalizar();
-      };
+    img.onload = function(){
+      imagens.push(nome);
+      falhasSeguidas = 0;
+      numero++;
+      testar();
+    };
 
-      img.onerror = function(){
-        finalizar();
-      };
+    img.onerror = function(){
+      falhasSeguidas++;
+      numero++;
 
-      img.src = url + '?t=' + new Date().getTime();
-
-      function finalizar(){
-        testados++;
-        if(testados === totalTestar){
-          imagens.sort();
-          idx = 0;
-          mostraDebug('Encontradas ' + imagens.length + ' imagens');
-          callback();
-        }
+      if(falhasSeguidas >= limiteFalhas){
+        imagens.sort();
+        idx = 0;
+        mostraDebug('Total encontrado: ' + imagens.length);
+        callback();
+      }else{
+        testar();
       }
-    })(i);
+    };
+
+    img.src = url + '?t=' + new Date().getTime();
   }
+
+  testar();
+}
+
+function preloadProxima(){
+  var proximo = idx + 1;
+  if(proximo >= imagens.length) return;
+
+  preloadImg.src = baseUrl + imagens[proximo];
 }
 
 function mostrarImagem(){
@@ -146,6 +158,8 @@ function mostrarImagem(){
   var nome = imagens[idx];
   imgElement.src = baseUrl + nome;
   mostraDebug('Imagem ' + (idx+1) + '/' + imagens.length + ' - ' + nome);
+
+  preloadProxima();
 }
 
 function proxima(){
