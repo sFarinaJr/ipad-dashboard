@@ -82,7 +82,20 @@ html, body {
 
 <script>
 var baseUrl = 'https://raw.githubusercontent.com/sfarinajr/ipad-dashboard/main/';
-var imagens = [];
+var imagens = [
+  'screenshot_09_20260213_144245.png',
+  'screenshot_08_20260213_143737.png',
+  'screenshot_07_20260213_133014.png',
+  'screenshot_06_20260213_132908.png',
+  'screenshot_05_20260213_132405.png',
+  'screenshot_04_20260213_140502.png',
+  'screenshot_03_20260213_140003.png',
+  'screenshot_02_20260213_135502.png',
+  'screenshot_01_20260213_135002.png',
+  'screenshot_00_20260213_134503.png'
+  // Se adicionar mais no futuro, basta colar novas linhas aqui
+];
+
 var idx = 0;
 var tempoTroca = 5 * 60 * 1000; // 5 minutos
 
@@ -93,142 +106,40 @@ function mostraDebug(msg) {
   debug.innerHTML = msg;
 }
 
-function pad(n) {
-  if (n < 10) return '0' + n;
-  return '' + n;
-}
-
-function preloadImagem(url) {
-  var img = new Image();
-  img.src = url;
-}
-
-function montarLista(callback) {
-  imagens = [];
-  var numero = 0;
-  var maxTentativas = 100;          // teste de 00 até 99 — aumente se precisar
-  var falhasSeguidas = 0;
-  var limiteFalhas = 15;            // para parar mais cedo se acabar os arquivos
-
-  mostraDebug('Buscando imagens .png no repositório...');
-
-  function testar() {
-    if (numero >= maxTentativas) {
-      finalizar();
-      return;
-    }
-
-    var prefixo = 'screenshot_' + pad(numero) + '_';
-    var urlTeste = baseUrl + prefixo + '000000_000000.png?t=' + new Date().getTime(); // nome fictício só para testar existência da série
-
-    // Na prática, vamos tentar um nome aproximado ou usar o ?t= para forçar checagem
-    // Mas como os nomes variam na data/hora, o truque é testar um nome "provável" ou aceitar que vamos precisar adivinhar melhor
-
-    // Alternativa realista: como os nomes começam com screenshot_XX_, tentamos carregar diretamente assumindo um sufixo genérico (mas não é perfeito)
-    // Solução mais simples: testar sequencialmente e aceitar que pode pular alguns se o padrão mudar
-
+function preloadTodas() {
+  for (var i = 0; i < imagens.length; i++) {
     var img = new Image();
-
-    img.onload = function() {
-      // Se carregou, assumimos que existe um arquivo com esse prefixo (mas precisamos do nome real)
-      // Problema: não sabemos o nome exato (data/hora)
-      // Solução prática: pular essa abordagem e listar manualmente ou usar outra estratégia
-
-      // =================================================
-      // MELHOR SOLUÇÃO COMPATÍVEL: liste os nomes manualmente no array abaixo
-      // Atualize só essa parte quando adicionar imagens novas
-      // =================================================
-
-      // ATUALIZE AQUI com os nomes reais que estão no GitHub
-      imagens = [
-        'screenshot_00_20260213_134503.png',
-        'screenshot_01_20260213_135002.png',
-        'screenshot_02_20260213_135502.png',
-        'screenshot_07_20260213_133014.png',
-        'screenshot_08_20260213_133508.png',
-        'screenshot_09_20260213_134002.png'
-        // adicione novos aqui: 'screenshot_10_....png',
-      ];
-
-      imagens.sort(); // ordem alfabética (geralmente cronológica se o prefixo for crescente)
-
-      mostraDebug('Imagens carregadas manualmente: ' + imagens.length);
-      preloadTodas();
-      callback();
-    };
-
-    // Se quiser manter busca automática, mas é difícil sem saber o sufixo exato
-    // Por enquanto recomendo a lista manual acima (mais confiável em iOS 9)
-
-    img.onerror = function() {
-      falhasSeguidas++;
-      numero++;
-      if (falhasSeguidas >= limiteFalhas || numero >= maxTentativas) {
-        finalizar();
-      } else {
-        testar();
-      }
-    };
-
-    img.src = urlTeste;
+    img.src = baseUrl + imagens[i];
   }
-
-  function preloadTodas() {
-    for (var i = 0; i < imagens.length; i++) {
-      preloadImagem(baseUrl + imagens[i]);
-    }
-    mostraDebug('Pré-carregadas ' + imagens.length + ' imagens.');
-  }
-
-  function finalizar() {
-    if (imagens.length === 0) {
-      mostraDebug('Nenhuma imagem encontrada.');
-    } else {
-      imagens.sort();
-      mostraDebug('Total encontrado: ' + imagens.length);
-      preloadTodas();
-    }
-    callback();
-  }
-
-  // Para máxima compatibilidade e estabilidade no iOS 9:
-  // Use a lista manual no array "imagens = [ ... ]" acima
-  // Comente as linhas de testar() abaixo se optar pela lista fixa
-
-  // testar();   // <--- comente se usar lista manual
-
-  // Alternativa: inicie direto com lista fixa
-  preloadTodas();
-  callback();
+  mostraDebug('Pré-carregadas ' + imagens.length + ' imagens. Iniciando slideshow...');
 }
 
 function mostrarImagem() {
   if (imagens.length === 0) {
-    mostraDebug('Nenhuma imagem encontrada');
+    mostraDebug('Nenhuma imagem na lista');
     return;
   }
 
   var nome = imagens[idx];
   imgElement.src = baseUrl + nome;
-  mostraDebug('Imagem ' + (idx + 1) + '/' + imagens.length + ' - ' + nome);
+  mostraDebug('Imagem ' + (idx + 1) + '/' + imagens.length + ' → ' + nome);
 }
 
 function proxima() {
-  idx++;
-  if (idx >= imagens.length) {
-    idx = 0; // loop simples (ou recarregar lista se quiser atualizar)
-    // Se quiser recarregar a lista toda vez que chegar ao fim:
-    // montarLista(function() { idx = 0; mostrarImagem(); });
-  }
+  idx = (idx + 1) % imagens.length;  // loop infinito: volta ao início automaticamente
   mostrarImagem();
 }
 
 // Início
-montarLista(function() {
-  idx = 0;
+if (imagens.length > 0) {
+  // imagens já estão na ordem desejada (mais recente primeiro)
+  // Se quiser ordem alfabética: imagens.sort();
+  preloadTodas();
   mostrarImagem();
   setInterval(proxima, tempoTroca);
-});
+} else {
+  mostraDebug('Lista de imagens vazia. Verifique o array imagens[]');
+}
 </script>
 
 </body>
