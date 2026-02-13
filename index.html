@@ -17,12 +17,28 @@
     html, body {
       height:100%; width:100%;
       background:#000; overflow:hidden;
-      font-family:sans-serif; color:#0f0;
+      font-family:sans-serif;
     }
+
     #mainImage {
       width:100%; height:100%; display:block;
       object-fit:contain;
     }
+
+    #debug {
+      position:fixed;
+      top:0; left:0; right:0;
+      z-index:999;
+      background:#0b5ed7;
+      color:#fff;
+      padding:6px 10px;
+      font-size:13px;
+      font-family:monospace;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+
     .progress-container {
       position:fixed; bottom:0; left:0; right:0; height:28px;
       background:#222; z-index:100;
@@ -41,119 +57,117 @@
     }
     @-webkit-keyframes shrink { from {width:100%} to {width:0%} }
     @keyframes shrink { from {width:100%} to {width:0%} }
+
     .scale {
       position:absolute; top:0; right:0; bottom:0; left:0;
       display:-webkit-box; display:flex;
-      -webkit-justify-content:center; justify-content:center;
+      -webkit-justify-content:space-between; justify-content:space-between;
       -webkit-align-items:center; align-items:center;
       color:white; font-size:14px; font-weight:bold;
-      pointer-events:none; user-select:none; z-index:101;
+      pointer-events:none; z-index:101;
       padding:0 8px; box-sizing:border-box;
       text-shadow:0 0 4px #000;
     }
-    .scale span { -webkit-flex:none; flex:none; text-align:center; }
-    @media (orientation:landscape) {
-      .scale { font-size:13px; }
-      .progress-container { height:26px; }
-    }
+    .scale span { -webkit-flex:1; flex:1; text-align:center; }
   </style>
 </head>
 <body>
 
-  <img id="mainImage" src="" alt="Dashboard">
+<div id="debug">Iniciando...</div>
 
-  <div class="progress-container">
-    <div class="progress-bg"></div>
-    <div class="progress-mask"></div>
-    <div class="scale">
-      <span id="status">Iniciando...</span>
-    </div>
+<img id="mainImage" src="" alt="Dashboard">
+
+<div class="progress-container">
+  <div class="progress-bg"></div>
+  <div class="progress-mask"></div>
+  <div class="scale">
+    <span>5</span><span>4</span><span>3</span><span>2</span><span>1</span>
   </div>
+</div>
 
-  <script>
-    var baseUrl = 'https://raw.githubusercontent.com/sfarinajr/ipad-dashboard/main/';
-    var apiUrl = 'https://api.github.com/repos/sfarinajr/ipad-dashboard/contents/';
-    var imagens = [];
-    var idx = 0;
-    var tempoTroca = 5 * 60 * 1000;       // 5 minutos
-    var tempoAtualizaLista = 50 * 60 * 1000; // 50 minutos
+<script>
+var baseUrl = 'https://raw.githubusercontent.com/sfarinajr/ipad-dashboard/main/';
+var imagens = [];
+var idx = 0;
 
-    var status = document.getElementById('status');
-    var imgElement = document.getElementById('mainImage');
+var tempoTroca = 5 * 60 * 1000;
+var tempoAtualizaLista = 50 * 60 * 1000;
 
-    function mostraDebug(msg) {
-      status.innerHTML = msg;
-    }
+var debug = document.getElementById('debug');
+var imgElement = document.getElementById('mainImage');
 
-    function mostraProxima() {
-      if (imagens.length === 0) {
-        mostraDebug('Nenhuma imagem na lista');
-        return;
-      }
+function mostraDebug(msg) {
+  debug.innerHTML = msg;
+}
 
-      var nome = imagens[idx];
-      var url = baseUrl + nome;
+function mostraProxima() {
+  if (imagens.length === 0) {
+    mostraDebug('Aguardando lista de imagens...');
+    return;
+  }
 
-      mostraDebug('Mostrando: ' + nome + ' (' + (idx+1) + '/' + imagens.length + ')');
+  var nome = imagens[idx];
+  var url = baseUrl + nome;
 
-      var tester = new Image();
-      tester.onload = function() {
-        imgElement.src = url;
-        idx = (idx + 1) % imagens.length;
-      };
-      tester.onerror = function() {
-        mostraDebug('Falhou: ' + nome + ' → pulando');
-        idx = (idx + 1) % imagens.length;
-        setTimeout(mostraProxima, 800); // tenta próxima rápido
-      };
-      tester.src = url;
-    }
+  mostraDebug('Imagem: ' + nome + ' (' + (idx+1) + '/' + imagens.length + ')');
 
-    function atualizarListaImagens() {
-      mostraDebug('Atualizando lista (a cada 50 min)...');
+  var tester = new Image();
+  tester.onload = function() {
+    imgElement.src = url;
+    idx = (idx + 1) % imagens.length;
+  };
+  tester.onerror = function() {
+    mostraDebug('Erro: ' + nome);
+    idx = (idx + 1) % imagens.length;
+    setTimeout(mostraProxima, 800);
+  };
+  tester.src = url;
+}
 
-      var xhr = new XMLHttpRequest();
-      xhr.open('GET', apiUrl + '?t=' + new Date().getTime(), true);
-      xhr.onreadystatechange = function() {
-        if (xhr.readyState === 4) {
-          if (xhr.status === 200) {
-            var data = JSON.parse(xhr.responseText);
-            var novasImagens = [];
-            for (var i = 0; i < data.length; i++) {
-              var nome = data[i].name.toLowerCase();
-              if (nome.match(/^(latest-screenshot|screenshot-\d{3})\.png$/)) {
-                if (novasImagens.indexOf(nome) === -1) {
-                  novasImagens.push(nome);
-                }
-              }
-            }
+function atualizarListaImagens() {
+  mostraDebug('Buscando imagens no servidor...');
 
-            if (novasImagens.length > 0) {
-              imagens = novasImagens.sort();
-              idx = 0; // Reinicia o índice após atualização
-              mostraDebug('Lista atualizada! ' + imagens.length + ' imagens');
-              setTimeout(mostraProxima, 2000); // Mostra a primeira após breve delay
-            } else {
-              mostraDebug('Nenhuma imagem encontrada');
-            }
-          } else {
-            mostraDebug('Falha atualização status ' + xhr.status);
+  var xhr = new XMLHttpRequest();
+  xhr.open('GET', baseUrl + 'index.html?t=' + new Date().getTime(), true);
+
+  xhr.onreadystatechange = function() {
+    if (xhr.readyState === 4) {
+      if (xhr.status === 200) {
+
+        var html = xhr.responseText;
+        var novas = [];
+        var re = /(latest-screenshot\.png|screenshot-\d{3}\.png)/gi;
+        var match;
+
+        while ((match = re.exec(html)) !== null) {
+          var nome = match[1].toLowerCase();
+          if (novas.indexOf(nome) === -1) {
+            novas.push(nome);
           }
         }
-      };
-      xhr.send();
+
+        if (novas.length > 0) {
+          imagens = novas.sort();
+          idx = 0;
+          mostraDebug('Lista carregada: ' + imagens.length + ' imagens');
+          mostraProxima();
+        } else {
+          mostraDebug('Nenhuma imagem encontrada');
+        }
+
+      } else {
+        mostraDebug('Falha ao ler diretorio');
+      }
     }
+  };
 
-    // Início: atualiza lista imediatamente
-    atualizarListaImagens();
+  xhr.send();
+}
 
-    // Troca de imagem normal
-    setInterval(mostraProxima, tempoTroca);
-
-    // Atualiza lista de imagens a cada 50 minutos
-    setInterval(atualizarListaImagens, tempoAtualizaLista);
-
-  </script>
+atualizarListaImagens();
+setInterval(mostraProxima, tempoTroca);
+setInterval(atualizarListaImagens, tempoAtualizaLista);
+</script>
 
 </body>
 </html>
