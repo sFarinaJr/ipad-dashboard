@@ -70,7 +70,7 @@ html, body {
 <body>
 
 <div id="debug">Iniciando...</div>
-<img id="mainImage" src="" alt="Dashboard" onerror="this.onerror=null; proxima();">
+<img id="mainImage" src="" alt="Dashboard" onerror="this.src=''; proxima();">
 
 <div class="progress-container">
   <div class="progress-bg"></div>
@@ -95,13 +95,18 @@ function mostraDebug(msg) {
 
 function mostrarImagem() {
   if (imagens.length === 0) {
-    mostraDebug('Nenhuma imagem válida na lista');
+    mostraDebug('Nenhuma imagem na lista (TXT vazio ou inválido)');
     return;
   }
 
   var nome = imagens[idx];
+  if (!nome) {
+    proxima();
+    return;
+  }
+
   imgElement.src = baseUrl + nome;
-  mostraDebug('Tentando: ' + (idx + 1) + '/' + imagens.length + ' → ' + nome);
+  mostraDebug('Tentando ' + (idx + 1) + ' de ' + imagens.length + ' → ' + nome);
 }
 
 function proxima() {
@@ -113,41 +118,41 @@ function loadImagens() {
   var xhr = new XMLHttpRequest();
   xhr.open('GET', baseUrl + 'imagensPNG.txt', true);
   xhr.onreadystatechange = function() {
-    if (xhr.readyState == 4) {
-      if (xhr.status == 200) {
-        var lines = xhr.responseText.split('\n');
+    if (xhr.readyState === 4) {
+      if (xhr.status === 200) {
+        var texto = xhr.responseText || '';
+        var linhas = texto.split('\n');
         imagens = [];
-        for (var i = 0; i < lines.length; i++) {
-          var name = lines[i].trim();
-          if (name && name.toLowerCase().indexOf('.png') !== -1) {
-            imagens.push(name);
+
+        for (var i = 0; i < linhas.length; i++) {
+          var linha = linhas[i].trim();
+          if (linha && linha.indexOf('.png') !== -1) {  // aceita só linhas com .png
+            imagens.push(linha);
           }
         }
-        // Inverte para começar pela mais recente (última do arquivo)
-        imagens.reverse();
 
         if (imagens.length > 0) {
-          mostraDebug('Carregou ' + imagens.length + ' nomes. Iniciando...');
+          mostraDebug('Carregou ' + imagens.length + ' imagens do TXT. Iniciando...');
           mostrarImagem();
           setInterval(proxima, tempoTroca);
         } else {
-          mostraDebug('Nenhum nome de imagem encontrado no TXT');
+          mostraDebug('Nenhuma imagem válida encontrada no TXT');
         }
       } else {
-        mostraDebug('Erro ao baixar TXT (status ' + xhr.status + '). Tentando novamente...');
-        setTimeout(loadImagens, 3000);
+        mostraDebug('Erro ao carregar TXT (status: ' + xhr.status + '). Tentando novamente em 5s...');
+        setTimeout(loadImagens, 5000);
       }
     }
   };
   xhr.onerror = function() {
-    mostraDebug('Falha na conexão ao TXT. Tentando novamente...');
-    setTimeout(loadImagens, 3000);
+    mostraDebug('Falha na rede ao buscar TXT. Tentando novamente em 5s...');
+    setTimeout(loadImagens, 5000);
   };
   xhr.send();
 }
 
 // Início
-mostraDebug('Buscando lista de imagens...');
+mostraDebug('Buscando imagensPNG.txt...');
 loadImagens();
 </script>
 
