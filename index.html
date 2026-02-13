@@ -25,9 +25,12 @@
       object-fit:contain;
     }
 
+    /* DEBUG - deslocado para direita */
     #debug {
       position:fixed;
-      top:0; left:0; right:0;
+      top:0;
+      left:120px;
+      right:0;
       z-index:999;
       background:#0b5ed7;
       color:#fff;
@@ -117,7 +120,6 @@ function mostraProxima() {
     idx = (idx + 1) % imagens.length;
   };
   tester.onerror = function() {
-    mostraDebug('Erro: ' + nome);
     idx = (idx + 1) % imagens.length;
     setTimeout(mostraProxima, 800);
   };
@@ -125,38 +127,34 @@ function mostraProxima() {
 }
 
 function atualizarListaImagens() {
-  mostraDebug('Buscando imagens no servidor...');
+  mostraDebug('Buscando imagens...');
 
   var xhr = new XMLHttpRequest();
   xhr.open('GET', baseUrl + 'index.html?t=' + new Date().getTime(), true);
 
   xhr.onreadystatechange = function() {
-    if (xhr.readyState === 4) {
-      if (xhr.status === 200) {
+    if (xhr.readyState === 4 && xhr.status === 200) {
 
-        var html = xhr.responseText;
-        var novas = [];
-        var re = /(latest-screenshot\.png|screenshot-\d{3}\.png)/gi;
-        var match;
+      var html = xhr.responseText;
+      var novas = [];
+      var re = /href="([^"]+\.png)"/gi;
+      var match;
 
-        while ((match = re.exec(html)) !== null) {
-          var nome = match[1].toLowerCase();
-          if (novas.indexOf(nome) === -1) {
-            novas.push(nome);
-          }
+      while ((match = re.exec(html)) !== null) {
+        var nome = match[1].toLowerCase();
+        if (novas.indexOf(nome) === -1) {
+          novas.push(nome);
         }
+      }
 
-        if (novas.length > 0) {
-          imagens = novas.sort();
-          idx = 0;
-          mostraDebug('Lista carregada: ' + imagens.length + ' imagens');
-          mostraProxima();
-        } else {
-          mostraDebug('Nenhuma imagem encontrada');
-        }
-
+      if (novas.length > 0) {
+        imagens = novas.sort();
+        idx = 0;
+        mostraDebug('Encontradas ' + imagens.length + ' imagens');
+        mostraProxima();
       } else {
-        mostraDebug('Falha ao ler diretorio');
+        mostraDebug('Tentando novamente...');
+        setTimeout(atualizarListaImagens, 30000);
       }
     }
   };
