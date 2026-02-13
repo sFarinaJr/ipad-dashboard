@@ -24,10 +24,11 @@
       object-fit:contain;
     }
     #debug {
-      position:fixed; top:8px; left:8px; z-index:999;
+      position:fixed; bottom:36px; right:8px; z-index:999;
       background:rgba(0,0,0,0.7); padding:6px 10px;
-      font-size:14px; font-family:monospace;
-      max-width:95%; line-height:1.4;
+      font-size:13px; font-family:monospace;
+      max-width:80%; line-height:1.3;
+      text-align:right;
     }
     .progress-container {
       position:fixed; bottom:0; left:0; right:0; height:28px;
@@ -61,6 +62,7 @@
     @media (orientation:landscape) {
       .scale { font-size:13px; }
       .progress-container { height:26px; }
+      #debug { font-size:12px; bottom:34px; }
     }
   </style>
 </head>
@@ -94,7 +96,7 @@
       'screenshot-012.png'
     ];
     var idx = 0;
-    var tempoTroca = 5 * 60 * 1000;      // 5 minutos
+    var tempoTroca = 5 * 60 * 1000;       // 5 minutos
     var tempoAtualizaLista = 50 * 60 * 1000; // 50 minutos
 
     var debug = document.getElementById('debug');
@@ -113,24 +115,23 @@
       var nome = imagens[idx];
       var url = baseUrl + nome;
 
-      mostraDebug('Tentando: ' + nome + '<br>Posição: ' + (idx+1) + '/' + imagens.length);
+      mostraDebug('Mostrando:<br>' + nome + '<br>(' + (idx+1) + '/' + imagens.length + ')');
 
       var tester = new Image();
       tester.onload = function() {
         imgElement.src = url;
-        mostraDebug('Mostrando: ' + nome);
         idx = (idx + 1) % imagens.length;
       };
       tester.onerror = function() {
-        mostraDebug('Falhou: ' + nome + ' → pulando');
+        mostraDebug('Falhou:<br>' + nome + '<br>→ pulando');
         idx = (idx + 1) % imagens.length;
-        setTimeout(mostraProxima, 600); // tenta próxima rápido
+        setTimeout(mostraProxima, 800); // tenta próxima rápido
       };
       tester.src = url;
     }
 
     function atualizarListaImagens() {
-      mostraDebug('Atualizando lista de imagens (a cada 50 min)...');
+      mostraDebug('Atualizando lista<br>(a cada 50 min)...');
 
       var xhr = new XMLHttpRequest();
       xhr.open('GET', baseUrl + 'index.html?t=' + new Date().getTime(), true);
@@ -139,8 +140,6 @@
           if (xhr.status === 200) {
             var html = xhr.responseText;
             var novasImagens = [];
-
-            // Procura por padrões de imagens no HTML (ou qualquer string)
             var re = /(latest-screenshot\.png|screenshot-\d{3}\.png)/gi;
             var match;
             while ((match = re.exec(html)) !== null) {
@@ -151,30 +150,31 @@
             }
 
             if (novasImagens.length > 0) {
-              imagens = novasImagens.sort(); // ordena alfabeticamente
-              mostraDebug('Lista atualizada! ' + imagens.length + ' imagens encontradas.');
+              imagens = novasImagens.sort();
+              mostraDebug('Lista atualizada!<br>' + imagens.length + ' imagens');
             } else {
-              mostraDebug('Nenhuma imagem encontrada na atualização.');
+              mostraDebug('Nenhuma imagem encontrada');
             }
           } else {
-            mostraDebug('Falha ao atualizar lista (status ' + xhr.status + ')');
+            mostraDebug('Falha atualização<br>status ' + xhr.status);
           }
         }
       };
       xhr.send();
     }
 
-    // Inicia
+    // Início
     mostraProxima();
 
-    // Troca normal a cada 5 min
+    // Troca de imagem normal
     setInterval(mostraProxima, tempoTroca);
 
-    // Atualiza lista a cada 50 min
+    // Atualiza lista de imagens raramente
     setInterval(atualizarListaImagens, tempoAtualizaLista);
 
-    // Primeira atualização após 2 minutos (para pegar mudanças recentes)
-    setTimeout(atualizarListaImagens, 2 * 60 * 1000);
+    // Primeira checagem um pouco mais cedo
+    setTimeout(atualizarListaImagens, 3 * 60 * 1000);
+
   </script>
 
 </body>
