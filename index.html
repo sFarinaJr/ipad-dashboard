@@ -8,7 +8,6 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
-  <meta http-equiv="refresh" content="300">
 
   <title>Dashboard</title>
 
@@ -25,16 +24,14 @@
       object-fit:contain;
     }
 
-    /* DEBUG - deslocado para direita */
+    /* FAIXA AZUL TOTAL + TEXTO DESLOCADO */
     #debug {
       position:fixed;
-      top:0;
-      left:120px;
-      right:0;
+      top:0; left:0; right:0;
       z-index:999;
       background:#0b5ed7;
       color:#fff;
-      padding:6px 10px;
+      padding:6px 10px 6px 120px;
       font-size:13px;
       font-family:monospace;
       white-space:nowrap;
@@ -94,7 +91,6 @@ var imagens = [];
 var idx = 0;
 
 var tempoTroca = 5 * 60 * 1000;
-var tempoAtualizaLista = 50 * 60 * 1000;
 
 var debug = document.getElementById('debug');
 var imgElement = document.getElementById('mainImage');
@@ -103,31 +99,8 @@ function mostraDebug(msg) {
   debug.innerHTML = msg;
 }
 
-function mostraProxima() {
-  if (imagens.length === 0) {
-    mostraDebug('Aguardando lista de imagens...');
-    return;
-  }
-
-  var nome = imagens[idx];
-  var url = baseUrl + nome;
-
-  mostraDebug('Imagem: ' + nome + ' (' + (idx+1) + '/' + imagens.length + ')');
-
-  var tester = new Image();
-  tester.onload = function() {
-    imgElement.src = url;
-    idx = (idx + 1) % imagens.length;
-  };
-  tester.onerror = function() {
-    idx = (idx + 1) % imagens.length;
-    setTimeout(mostraProxima, 800);
-  };
-  tester.src = url;
-}
-
-function atualizarListaImagens() {
-  mostraDebug('Buscando imagens...');
+function carregarLista(callback) {
+  mostraDebug('Lendo imagens do repositorio...');
 
   var xhr = new XMLHttpRequest();
   xhr.open('GET', baseUrl + 'index.html?t=' + new Date().getTime(), true);
@@ -150,11 +123,11 @@ function atualizarListaImagens() {
       if (novas.length > 0) {
         imagens = novas.sort();
         idx = 0;
-        mostraDebug('Encontradas ' + imagens.length + ' imagens');
-        mostraProxima();
+        mostraDebug('Total de imagens: ' + imagens.length);
+        callback();
       } else {
-        mostraDebug('Tentando novamente...');
-        setTimeout(atualizarListaImagens, 30000);
+        mostraDebug('Falha ao obter lista, tentando novamente...');
+        setTimeout(function(){ carregarLista(callback); }, 30000);
       }
     }
   };
@@ -162,9 +135,33 @@ function atualizarListaImagens() {
   xhr.send();
 }
 
-atualizarListaImagens();
-setInterval(mostraProxima, tempoTroca);
-setInterval(atualizarListaImagens, tempoAtualizaLista);
+function mostrarImagemAtual() {
+  if (imagens.length === 0) return;
+
+  var nome = imagens[idx];
+  var url = baseUrl + nome;
+
+  mostraDebug('Imagem ' + (idx+1) + ' de ' + imagens.length + ' - ' + nome);
+
+  imgElement.src = url;
+}
+
+function proximaImagem() {
+  idx++;
+
+  if (idx >= imagens.length) {
+    carregarLista(function(){
+      mostrarImagemAtual();
+    });
+  } else {
+    mostrarImagemAtual();
+  }
+}
+
+carregarLista(function(){
+  mostrarImagemAtual();
+  setInterval(proximaImagem, tempoTroca);
+});
 </script>
 
 </body>
