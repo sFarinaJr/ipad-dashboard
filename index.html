@@ -25,7 +25,7 @@ html, body { height:100%; width:100%; background:#000; overflow:hidden; font-fam
 <body>
 
 <div id="debug">Iniciando...</div>
-<img id="mainImage" src="" alt="Dashboard" onerror="onImageError()">
+<img id="mainImage" src="" alt="Dashboard" onload="onImageLoad()" onerror="onImageError()">
 
 <div class="progress-container">
   <div class="progress-bg"></div>
@@ -39,6 +39,8 @@ var imagens = [];
 var idx = 0;
 var tempoTroca = 5 * 60 * 1000; // 5 min
 var loadTimeout = null;
+var isTest = true;
+var testImage = 'https://upload.wikimedia.org/wikipedia/commons/4/47/PNG_transparency_demonstration_1.png'; // Imagem de teste simples e pública
 
 var debug = document.getElementById('debug');
 var imgElement = document.getElementById('mainImage');
@@ -48,10 +50,26 @@ function log(msg) {
   debug.innerHTML = agora + ' | ' + msg;
 }
 
+function onImageLoad() {
+  if (loadTimeout) clearTimeout(loadTimeout);
+  if (isTest) {
+    log('SUCESSO: Imagem de teste carregou! Prosseguindo com dashboard...');
+    isTest = false;
+    loadImagens();
+  } else {
+    log('SUCESSO: Imagem carregou → ' + imagens[idx]);
+    // Reinicia timeout para próxima troca automática
+  }
+}
+
 function onImageError() {
   if (loadTimeout) clearTimeout(loadTimeout);
-  log('ERRO ao carregar imagem → pulando');
-  proxima();
+  if (isTest) {
+    log('ERRO: Falha na imagem de teste. Problema geral com imagens?');
+  } else {
+    log('ERRO: Falha ao carregar ' + imagens[idx] + ' → pulando');
+    proxima();
+  }
 }
 
 function mostrarImagem() {
@@ -65,15 +83,14 @@ function mostrarImagem() {
     return;
   }
   log('Tentando (' + (idx + 1) + '/' + imagens.length + '): ' + nome);
-  imgElement.src = ''; // limpa anterior
+  imgElement.src = ''; // limpa
   imgElement.src = baseUrl + nome;
 
-  // Timeout de segurança: se não carregar em 20s, pula
   if (loadTimeout) clearTimeout(loadTimeout);
   loadTimeout = setTimeout(function() {
-    log('Timeout 20s → pulando ' + nome);
+    log('TIMEOUT 30s para ' + nome + ' → pulando');
     proxima();
-  }, 20000);
+  }, 30000);
 }
 
 function proxima() {
@@ -98,27 +115,31 @@ function loadImagens() {
           }
         }
         if (imagens.length > 0) {
-          log('OK: ' + imagens.length + ' imagens listadas. Iniciando...');
+          log('OK: ' + imagens.length + ' imagens. Iniciando dashboard...');
           mostrarImagem();
           setInterval(proxima, tempoTroca);
         } else {
-          log('Nenhum .png válido no TXT');
+          log('Nenhum .png no TXT');
         }
       } else {
-        log('Erro TXT status ' + xhr.status + ' → retry em 5s');
-        setTimeout(loadImagens, 5000);
+        log('Erro TXT status ' + xhr.status + ' → retry 10s');
+        setTimeout(loadImagens, 10000);
       }
     }
   };
   xhr.onerror = function() {
-    log('Falha rede TXT → retry em 5s');
-    setTimeout(loadImagens, 5000);
+    log('Falha rede TXT → retry 10s');
+    setTimeout(loadImagens, 10000);
   };
   xhr.send();
 }
 
-log('Dashboard iniciado');
-loadImagens();
+// Início: Testa imagem pública primeiro
+log('Testando carga de imagem pública...');
+imgElement.src = testImage;
+loadTimeout = setTimeout(function() {
+  log('TIMEOUT 30s para teste → falha geral?');
+}, 30000);
 </script>
 </body>
 </html>
