@@ -10,103 +10,70 @@
 
 <style>
 * { margin:0; padding:0; border:0; }
-html, body {
-  height:100%; width:100%;
-  background:#000; overflow:hidden;
-  font-family:sans-serif;
-}
-
-#mainImage {
-  width:100%; height:100%; display:block;
-  object-fit:contain;
-}
-
-#debug {
-  position:fixed;
-  top:0; left:0; right:0;
-  z-index:999;
-  background:#0b5ed7;
-  color:#fff;
-  padding:6px 10px 6px 120px;
-  font-size:13px;
-  font-family:monospace;
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
-}
-
-.progress-container {
-  position:fixed; bottom:0; left:0; right:0; height:28px;
-  background:#222; z-index:100;
-}
-.progress-bg {
-  position:absolute; top:0; right:0; bottom:0; left:0;
-  background: -webkit-linear-gradient(left, #4a90e2, #f39c12 60%, #e74c3c);
-  background: linear-gradient(to right, #4a90e2, #f39c12 60%, #e74c3c);
-}
-.progress-mask {
-  position:absolute; top:0; bottom:0; left:0; background:#000;
-  width:100%;
-  -webkit-animation: shrink 300s linear infinite;
-  animation: shrink 300s linear infinite;
-  z-index:1;
-}
+html, body { height:100%; width:100%; background:#000; overflow:hidden; font-family:sans-serif; }
+#mainImage { width:100%; height:100%; display:block; }
+#debug { position:fixed; top:0; left:0; right:0; z-index:999; background:#0b5ed7; color:#fff; padding:6px 10px 6px 120px; font-size:13px; font-family:monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.progress-container { position:fixed; bottom:0; left:0; right:0; height:28px; background:#222; z-index:100; }
+.progress-bg { position:absolute; top:0; right:0; bottom:0; left:0; background: -webkit-linear-gradient(left, #4a90e2, #f39c12 60%, #e74c3c); background: linear-gradient(to right, #4a90e2, #f39c12 60%, #e74c3c); }
+.progress-mask { position:absolute; top:0; bottom:0; left:0; background:#000; width:100%; -webkit-animation: shrink 300s linear infinite; animation: shrink 300s linear infinite; z-index:1; }
 @-webkit-keyframes shrink { from {width:100%} to {width:0%} }
 @keyframes shrink { from {width:100%} to {width:0%} }
-
-.scale {
-  position:absolute; top:0; right:0; bottom:0; left:0;
-  display:-webkit-box; display:flex;
-  -webkit-justify-content:space-between; justify-content:space-between;
-  -webkit-align-items:center; align-items:center;
-  color:white; font-size:14px; font-weight:bold;
-  pointer-events:none; z-index:101;
-  padding:0 8px; box-sizing:border-box;
-  text-shadow:0 0 4px #000;
-}
+.scale { position:absolute; top:0; right:0; bottom:0; left:0; display:-webkit-box; display:flex; -webkit-justify-content:space-between; justify-content:space-between; -webkit-align-items:center; align-items:center; color:white; font-size:14px; font-weight:bold; pointer-events:none; z-index:101; padding:0 8px; box-sizing:border-box; text-shadow:0 0 4px #000; }
 .scale span { -webkit-flex:1; flex:1; text-align:center; }
 </style>
 </head>
 <body>
 
 <div id="debug">Iniciando...</div>
-<img id="mainImage" src="" alt="Dashboard" onerror="this.src=''; proxima();">
+<img id="mainImage" src="" alt="Dashboard" onerror="onImageError()">
 
 <div class="progress-container">
   <div class="progress-bg"></div>
   <div class="progress-mask"></div>
-  <div class="scale">
-    <span>5</span><span>4</span><span>3</span><span>2</span><span>1</span>
-  </div>
+  <div class="scale"><span>5</span><span>4</span><span>3</span><span>2</span><span>1</span></div>
 </div>
 
 <script>
 var baseUrl = 'https://raw.githubusercontent.com/sfarinajr/ipad-dashboard/main/';
 var imagens = [];
 var idx = 0;
-var tempoTroca = 5 * 60 * 1000; // 5 minutos
+var tempoTroca = 5 * 60 * 1000; // 5 min
+var loadTimeout = null;
 
 var debug = document.getElementById('debug');
 var imgElement = document.getElementById('mainImage');
 
-function mostraDebug(msg) {
-  debug.innerHTML = msg;
+function log(msg) {
+  var agora = new Date().toLocaleTimeString('pt-BR');
+  debug.innerHTML = agora + ' | ' + msg;
+}
+
+function onImageError() {
+  if (loadTimeout) clearTimeout(loadTimeout);
+  log('ERRO ao carregar imagem → pulando');
+  proxima();
 }
 
 function mostrarImagem() {
   if (imagens.length === 0) {
-    mostraDebug('Nenhuma imagem na lista (TXT vazio ou inválido)');
+    log('Nenhuma imagem na lista');
     return;
   }
-
   var nome = imagens[idx];
   if (!nome) {
     proxima();
     return;
   }
-
+  log('Tentando (' + (idx + 1) + '/' + imagens.length + '): ' + nome);
+  imgElement.src = ''; // limpa anterior
   imgElement.src = baseUrl + nome;
-  mostraDebug('Tentando ' + (idx + 1) + ' de ' + imagens.length + ' → ' + nome);
+
+  // Timeout de segurança: se não carregar em 20s, pula
+  if (loadTimeout) clearTimeout(loadTimeout);
+  loadTimeout = setTimeout(function() {
+    log('Timeout 20s → pulando ' + nome);
+    proxima();
+  }, 20000);
 }
 
 function proxima() {
@@ -115,6 +82,7 @@ function proxima() {
 }
 
 function loadImagens() {
+  log('Buscando imagensPNG.txt...');
   var xhr = new XMLHttpRequest();
   xhr.open('GET', baseUrl + 'imagensPNG.txt', true);
   xhr.onreadystatechange = function() {
@@ -123,38 +91,34 @@ function loadImagens() {
         var texto = xhr.responseText || '';
         var linhas = texto.split('\n');
         imagens = [];
-
         for (var i = 0; i < linhas.length; i++) {
           var linha = linhas[i].trim();
-          if (linha && linha.indexOf('.png') !== -1) {  // aceita só linhas com .png
+          if (linha && linha.indexOf('.png') > -1) {
             imagens.push(linha);
           }
         }
-
         if (imagens.length > 0) {
-          mostraDebug('Carregou ' + imagens.length + ' imagens do TXT. Iniciando...');
+          log('OK: ' + imagens.length + ' imagens listadas. Iniciando...');
           mostrarImagem();
           setInterval(proxima, tempoTroca);
         } else {
-          mostraDebug('Nenhuma imagem válida encontrada no TXT');
+          log('Nenhum .png válido no TXT');
         }
       } else {
-        mostraDebug('Erro ao carregar TXT (status: ' + xhr.status + '). Tentando novamente em 5s...');
+        log('Erro TXT status ' + xhr.status + ' → retry em 5s');
         setTimeout(loadImagens, 5000);
       }
     }
   };
   xhr.onerror = function() {
-    mostraDebug('Falha na rede ao buscar TXT. Tentando novamente em 5s...');
+    log('Falha rede TXT → retry em 5s');
     setTimeout(loadImagens, 5000);
   };
   xhr.send();
 }
 
-// Início
-mostraDebug('Buscando imagensPNG.txt...');
+log('Dashboard iniciado');
 loadImagens();
 </script>
-
 </body>
 </html>
