@@ -9,15 +9,90 @@
 <style>
 * { margin:0; padding:0; border:0; }
 html, body { height:100%; width:100%; background:#000; overflow:hidden; font-family:sans-serif; }
-#mainImage { width:100%; height:100%; display:block; object-fit: contain; }
-#debug { position:fixed; top:0; left:0; right:0; z-index:999; background:#0b5ed7; color:#fff; padding:6px 10px; font-size:13px; font-family:monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; opacity: 0.8; }
-.progress-container { position:fixed; bottom:0; left:0; right:0; height:28px; background:#222; z-index:100; }
-.progress-bg { position:absolute; top:0; right:0; bottom:0; left:0; background: -webkit-linear-gradient(left, #4a90e2, #f39c12 60%, #e74c3c); }
-.progress-mask { position:absolute; top:0; bottom:0; left:0; background:#000; width:100%; -webkit-animation: shrink 300s linear infinite; animation: shrink 300s linear infinite; z-index:1; }
+
+/* Correção 2: Garantir que a imagem ocupe a tela toda */
+#mainImage { 
+    width:100% !important; 
+    height:100% !important; 
+    display:block; 
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+#debug { 
+    position:fixed; 
+    top:0; 
+    left:0; 
+    right:0; 
+    z-index:999; 
+    background:#0b5ed7; 
+    color:#fff; 
+    padding:6px 10px; 
+    font-size:13px; 
+    font-family:monospace; 
+    white-space:nowrap; 
+    overflow:hidden; 
+    text-overflow:ellipsis; 
+    opacity: 0.7; 
+}
+
+/* Correção 1: Barra de progressão compatível com iPad antigo */
+.progress-container { 
+    position:fixed; 
+    bottom:0; 
+    left:0; 
+    right:0; 
+    height:28px; 
+    background:#222; 
+    z-index:100; 
+}
+
+.progress-bg { 
+    position:absolute; 
+    top:0; 
+    right:0; 
+    bottom:0; 
+    left:0; 
+    background: -webkit-linear-gradient(left, #4a90e2, #f39c12 60%, #e74c3c); 
+}
+
+.progress-mask { 
+    position:absolute; 
+    top:0; 
+    bottom:0; 
+    left:0; 
+    background:#000; 
+    width:100%; 
+    -webkit-animation: shrink 300s linear infinite; 
+    animation: shrink 300s linear infinite; 
+    z-index:1; 
+}
+
 @-webkit-keyframes shrink { from {width:100%} to {width:0%} }
 @keyframes shrink { from {width:100%} to {width:0%} }
-.scale { position:absolute; top:0; right:0; bottom:0; left:0; display:-webkit-box; -webkit-justify-content:space-between; color:white; font-size:14px; font-weight:bold; z-index:101; padding:0 8px; line-height:28px; text-shadow:0 0 4px #000; }
-.scale span { -webkit-box-flex:1; text-align:center; }
+
+/* Estilização dos números da escala sem depender de flexbox moderno */
+.scale { 
+    position:absolute; 
+    top:0; 
+    left:0; 
+    width:100%; 
+    height:28px; 
+    z-index:101; 
+    color:white; 
+    font-size:14px; 
+    font-weight:bold; 
+    text-shadow:0 0 4px #000; 
+}
+
+.scale span { 
+    display: block;
+    float: left;
+    width: 20%; /* 5 divisões de 20% cada */
+    text-align: center;
+    line-height: 28px;
+}
 </style>
 </head>
 <body>
@@ -28,22 +103,21 @@ html, body { height:100%; width:100%; background:#000; overflow:hidden; font-fam
 <div class="progress-container">
   <div class="progress-bg"></div>
   <div class="progress-mask"></div>
-  <div class="scale"><span>5m</span><span>4m</span><span>3m</span><span>2m</span><span>1m</span></div>
+  <div class="scale">
+      <span>5m</span><span>4m</span><span>3m</span><span>2m</span><span>1m</span>
+  </div>
 </div>
 
 <script>
-// --- CONFIGURAÇÃO DE CAMINHOS ---
 var repoUrl = 'https://raw.githubusercontent.com/sfarinajr/ipad-dashboard/main/';
 var imagens = [];
 var idx = 0;
-var tempoTroca = 5 * 60 * 1000; // 5 min
+var tempoTroca = 5 * 60 * 1000; 
 var loadTimeout = null;
 
-// Elementos
 var debug = document.getElementById('debug');
 var imgElement = document.getElementById('mainImage');
 
-// --- LÓGICA DE PARÂMETROS (Compatível com iPad Antigo) ---
 function getQueryParam(name) {
     var query = window.location.search.substring(1);
     var vars = query.split("&");
@@ -58,15 +132,11 @@ var tema = getQueryParam('tema');
 var finalBaseUrl, manifestFile;
 
 if (tema) {
-    // Modo Temático (Pasta)
     finalBaseUrl = repoUrl + tema + '/screenshots/';
     manifestFile = repoUrl + tema + '/imagens_' + tema + '.txt';
-    log('TEMA: ' + tema.toUpperCase());
 } else {
-    // Modo Raiz (Original)
     finalBaseUrl = repoUrl;
     manifestFile = repoUrl + 'imagensPNG.txt';
-    log('MODO: RAIZ');
 }
 
 function log(msg) {
@@ -75,25 +145,25 @@ function log(msg) {
 
 function onImageLoad() {
   if (loadTimeout) clearTimeout(loadTimeout);
-  log('EXIBINDO: ' + imagens[idx]);
+  log('OK: ' + imagens[idx]);
 }
 
 function onImageError() {
   if (loadTimeout) clearTimeout(loadTimeout);
-  log('ERRO ao carregar: ' + imagens[idx]);
-  setTimeout(proxima, 5000); // Tenta a próxima após 5s se houver erro
+  log('ERRO: ' + imagens[idx]);
+  setTimeout(proxima, 5000); 
 }
 
 function mostrarImagem() {
   if (imagens.length === 0) return;
   var nome = imagens[idx].trim();
   
-  // Limpa cache adicionando timestamp (opcional para evitar fotos velhas)
+  imgElement.src = ''; 
   imgElement.src = finalBaseUrl + nome + '?t=' + new Date().getTime();
 
   if (loadTimeout) clearTimeout(loadTimeout);
   loadTimeout = setTimeout(function() {
-    log('TIMEOUT: ' + nome + ' (pulando...)');
+    log('TIMEOUT: ' + nome);
     proxima();
   }, 30000);
 }
@@ -105,7 +175,7 @@ function proxima() {
 }
 
 function loadManifest() {
-  log('Buscando lista: ' + (tema || 'raiz'));
+  log('Carregando lista...');
   var xhr = new XMLHttpRequest();
   xhr.open('GET', manifestFile, true);
   xhr.onreadystatechange = function() {
@@ -115,20 +185,20 @@ function loadManifest() {
         var linhas = texto.split('\n');
         imagens = [];
         for (var i = 0; i < linhas.length; i++) {
-          var linha = linhas[i].trim();
-          if (linha && linha.indexOf('.png') > -1) {
-            imagens.push(linha);
-          }
+            var linha = linhas[i].trim();
+            if (linha && (linha.indexOf('.png') > -1 || linha.indexOf('.PNG') > -1)) {
+                imagens.push(linha);
+            }
         }
         if (imagens.length > 0) {
-          log('OK: ' + imagens.length + ' imagens encontradas.');
+          log('Lista carregada: ' + imagens.length + ' imagens');
           mostrarImagem();
           setInterval(proxima, tempoTroca);
         } else {
-          log('ERRO: Nenhum .png listado em ' + manifestFile);
+          log('Erro: Lista vazia em ' + manifestFile);
         }
       } else {
-        log('ERRO TXT: Status ' + xhr.status + ' (tentando novamente...)');
+        log('Erro ao baixar lista. Status: ' + xhr.status);
         setTimeout(loadManifest, 10000);
       }
     }
@@ -136,9 +206,7 @@ function loadManifest() {
   xhr.send();
 }
 
-// Iniciar
 loadManifest();
-
 </script>
 </body>
 </html>
