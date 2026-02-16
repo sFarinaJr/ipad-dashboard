@@ -10,7 +10,7 @@
 * { margin:0; padding:0; border:0; }
 html, body { height:100%; width:100%; background:#000; overflow:hidden; font-family:sans-serif; }
 
-/* Correção 2: Garantir que a imagem ocupe a tela toda */
+/* Imagem ocupa tela toda */
 #mainImage { 
     width:100% !important; 
     height:100% !important; 
@@ -28,7 +28,7 @@ html, body { height:100%; width:100%; background:#000; overflow:hidden; font-fam
     z-index:999; 
     background:#0b5ed7; 
     color:#fff; 
-    padding: 6px 10px 6px 10ch;
+    padding: 6px 10px; 
     font-size:13px; 
     font-family:monospace; 
     white-space:nowrap; 
@@ -37,7 +37,7 @@ html, body { height:100%; width:100%; background:#000; overflow:hidden; font-fam
     opacity: 0.7; 
 }
 
-/* Correção 1: Barra de progressão compatível com iPad antigo */
+/* Barra de progressão */
 .progress-container { 
     position:fixed; 
     bottom:0; 
@@ -64,15 +64,15 @@ html, body { height:100%; width:100%; background:#000; overflow:hidden; font-fam
     left:0; 
     background:#000; 
     width:100%; 
-    -webkit-animation: shrink 300s linear infinite; 
-    animation: shrink 300s linear infinite; 
+    -webkit-animation: shrink 300s linear forwards; 
+    animation: shrink 300s linear forwards; 
     z-index:1; 
 }
 
 @-webkit-keyframes shrink { from {width:100%} to {width:0%} }
 @keyframes shrink { from {width:100%} to {width:0%} }
 
-/* Estilização dos números da escala sem depender de flexbox moderno */
+/* Escala de tempo */
 .scale { 
     position:absolute; 
     top:0; 
@@ -89,7 +89,7 @@ html, body { height:100%; width:100%; background:#000; overflow:hidden; font-fam
 .scale span { 
     display: block;
     float: left;
-    width: 20%; /* 5 divisões de 20% cada */
+    width: 20%;
     text-align: center;
     line-height: 28px;
 }
@@ -102,7 +102,7 @@ html, body { height:100%; width:100%; background:#000; overflow:hidden; font-fam
 
 <div class="progress-container">
   <div class="progress-bg"></div>
-  <div class="progress-mask"></div>
+  <div class="progress-mask" id="progressMask"></div>
   <div class="scale">
       <span>5m</span><span>4m</span><span>3m</span><span>2m</span><span>1m</span>
   </div>
@@ -112,20 +112,21 @@ html, body { height:100%; width:100%; background:#000; overflow:hidden; font-fam
 var repoUrl = 'https://raw.githubusercontent.com/sfarinajr/ipad-dashboard/main/';
 var imagens = [];
 var idx = 0;
-var tempoTroca = 5 * 60 * 1000; 
+var tempoTroca = 5 * 60 * 1000; // 5 minutos
 var loadTimeout = null;
 
 var debug = document.getElementById('debug');
 var imgElement = document.getElementById('mainImage');
+var progressMask = document.getElementById('progressMask');
 
 function getQueryParam(name) {
     var query = window.location.search.substring(1);
     var vars = query.split("&");
-    for (var i=0; i<vars.length; i++) {
+    for (var i = 0; i < vars.length; i++) {
         var pair = vars[i].split("=");
-        if(pair[0] == name){ return pair[1]; }
+        if (pair[0] == name) { return pair[1]; }
     }
-    return(false);
+    return false;
 }
 
 var tema = getQueryParam('tema');
@@ -140,70 +141,82 @@ if (tema) {
 }
 
 function log(msg) {
-  debug.innerHTML = msg;
+    var total = imagens.length;
+    var num = (idx + 1);
+    var pos = total > 0 ? ' (' + num + '/' + total + ')' : '';
+    debug.innerHTML = msg + pos;
+}
+
+function resetProgress() {
+    // Remove e re-adiciona a classe para resetar a animação (truque compatível)
+    progressMask.style.webkitAnimation = 'none';
+    progressMask.offsetHeight; // força reflow
+    progressMask.style.webkitAnimation = 'shrink 300s linear forwards';
+    progressMask.style.animation = 'shrink 300s linear forwards';
 }
 
 function onImageLoad() {
-  if (loadTimeout) clearTimeout(loadTimeout);
-  log('OK: ' + imagens[idx]);
+    if (loadTimeout) clearTimeout(loadTimeout);
+    resetProgress();
+    log(imagens[idx]);
 }
 
 function onImageError() {
-  if (loadTimeout) clearTimeout(loadTimeout);
-  log('ERRO: ' + imagens[idx]);
-  setTimeout(proxima, 5000); 
+    if (loadTimeout) clearTimeout(loadTimeout);
+    log('ERRO: ' + imagens[idx]);
+    setTimeout(proxima, 5000);
 }
 
 function mostrarImagem() {
-  if (imagens.length === 0) return;
-  var nome = imagens[idx].trim();
-  
-  imgElement.src = ''; 
-  imgElement.src = finalBaseUrl + nome + '?t=' + new Date().getTime();
+    if (imagens.length === 0) return;
+    var nome = imagens[idx].trim();
+    
+    imgElement.src = ''; 
+    imgElement.src = finalBaseUrl + nome + '?t=' + new Date().getTime();
 
-  if (loadTimeout) clearTimeout(loadTimeout);
-  loadTimeout = setTimeout(function() {
-    log('TIMEOUT: ' + nome);
-    proxima();
-  }, 30000);
+    if (loadTimeout) clearTimeout(loadTimeout);
+    loadTimeout = setTimeout(function() {
+        log('TIMEOUT: ' + imagens[idx]);
+        proxima();
+    }, 30000);
 }
 
 function proxima() {
-  if (imagens.length === 0) return;
-  idx = (idx + 1) % imagens.length;
-  mostrarImagem();
+    if (imagens.length === 0) return;
+    idx = (idx + 1) % imagens.length;
+    mostrarImagem();
 }
 
 function loadManifest() {
-  log('Carregando lista...');
-  var xhr = new XMLHttpRequest();
-  xhr.open('GET', manifestFile, true);
-  xhr.onreadystatechange = function() {
-    if (xhr.readyState === 4) {
-      if (xhr.status === 200) {
-        var texto = xhr.responseText || '';
-        var linhas = texto.split('\n');
-        imagens = [];
-        for (var i = 0; i < linhas.length; i++) {
-            var linha = linhas[i].trim();
-            if (linha && (linha.indexOf('.png') > -1 || linha.indexOf('.PNG') > -1)) {
-                imagens.push(linha);
+    log('Carregando lista...');
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', manifestFile, true);
+    xhr.onreadystatechange = function() {
+        if (xhr.readyState === 4) {
+            if (xhr.status === 200) {
+                var texto = xhr.responseText || '';
+                var linhas = texto.split('\n');
+                imagens = [];
+                for (var i = 0; i < linhas.length; i++) {
+                    var linha = linhas[i].trim();
+                    if (linha && (linha.indexOf('.png') > -1 || linha.indexOf('.PNG') > -1)) {
+                        imagens.push(linha);
+                    }
+                }
+                if (imagens.length > 0) {
+                    log('Lista carregada: ' + imagens.length + ' imagens');
+                    mostrarImagem();
+                    setInterval(proxima, tempoTroca);
+                } else {
+                    log('Erro: Lista vazia');
+                }
+            } else {
+                log('Erro ao baixar lista. Status: ' + xhr.status);
+                setTimeout(loadManifest, 10000);
             }
         }
-        if (imagens.length > 0) {
-          log('Lista carregada: ' + imagens.length + ' imagens');
-          mostrarImagem();
-          setInterval(proxima, tempoTroca);
-        } else {
-          log('Erro: Lista vazia em ' + manifestFile);
-        }
-      } else {
-        log('Erro ao baixar lista. Status: ' + xhr.status);
-        setTimeout(loadManifest, 10000);
-      }
-    }
-  };
-  xhr.send();
+    };
+    xhr.send();
 }
 
 loadManifest();
