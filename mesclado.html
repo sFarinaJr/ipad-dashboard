@@ -28,7 +28,7 @@ html, body { height:100%; width:100%; background:#000; overflow:hidden; font-fam
     z-index:999; 
     background:#0b5ed7; 
     color:#fff; 
-    padding: 6px 10px 6px 10ch;   /* ← restaurado exatamente como no original */
+    padding: 6px 10px 6px 10ch;
     font-size:13px; 
     font-family:monospace; 
     white-space:nowrap; 
@@ -184,18 +184,28 @@ function skip() {
 function buildImagens() {
     var i = 0;
     var j = 0;
-    while (i < imagensCarros.length || j < imagensRaiz.length) {
-        for (var k = 0; k < 3 && i < imagensCarros.length; k++) {
+    imagens = [];
+
+    // Para cada uma das 10 imagens da raiz, adicionamos 3 carros + 1 raiz
+    while (j < imagensRaiz.length) {
+        var qtdCarros = Math.min(3, imagensCarros.length - i);
+        for (var k = 0; k < qtdCarros; k++) {
             imagens.push({urlBase: baseUrlCarros + imagensCarros[i], name: imagensCarros[i]});
             i++;
         }
-        if (j < imagensRaiz.length) {
-            imagens.push({urlBase: baseUrlRaiz + imagensRaiz[j], name: imagensRaiz[j]});
-            j++;
-        }
+
+        imagens.push({urlBase: baseUrlRaiz + imagensRaiz[j], name: imagensRaiz[j]});
+        j++;
     }
+
+    // Se sobrar alguma imagem de carro (não deve sobrar com 30 exatos)
+    while (i < imagensCarros.length) {
+        imagens.push({urlBase: baseUrlCarros + imagensCarros[i], name: imagensCarros[i]});
+        i++;
+    }
+
     if (imagens.length > 0) {
-        log('Lista mesclada carregada: ' + imagens.length + ' imagens');
+        log('Lista mesclada carregada: ' + imagens.length + ' imagens (3 carros : 1 raiz)');
         mostrarImagem();
     } else {
         log('Erro: Lista vazia');
