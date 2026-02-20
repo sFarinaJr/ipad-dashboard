@@ -128,6 +128,8 @@ var manifestCarros = repoUrl + 'carros/imagens_carros.txt';
 var imagensRaiz = [];
 var imagensCarros = [];
 var loaded = 0;
+var retryCounts = { raiz: 0, carros: 0 };
+var maxRetries = 5; // Limite de tentativas para carregar manifests
 
 function log(msg) {
     var total = imagens.length;
@@ -138,21 +140,31 @@ function log(msg) {
 
 function resetProgress() {
     progressMask.style.webkitAnimation = 'none';
+    progressMask.style.animation = 'none';
     progressMask.offsetHeight; // força reflow
     progressMask.style.webkitAnimation = 'shrink 300s linear forwards';
     progressMask.style.animation = 'shrink 300s linear forwards';
 }
 
 function onImageLoad() {
-    if (loadTimeout) clearTimeout(loadTimeout);
+    if (loadTimeout) {
+        clearTimeout(loadTimeout);
+        loadTimeout = null;
+    }
     resetProgress();
     log(imagens[idx].name);
-    if (autoTimeout) clearTimeout(autoTimeout);
+    if (autoTimeout) {
+        clearTimeout(autoTimeout);
+        autoTimeout = null;
+    }
     autoTimeout = setTimeout(proxima, tempoTroca);
 }
 
 function onImageError() {
-    if (loadTimeout) clearTimeout(loadTimeout);
+    if (loadTimeout) {
+        clearTimeout(loadTimeout);
+        loadTimeout = null;
+    }
     log('ERRO: ' + imagens[idx].name);
     setTimeout(proxima, 5000);
 }
@@ -161,9 +173,13 @@ function mostrarImagem() {
     if (imagens.length === 0) return;
     var obj = imagens[idx];
     
-    imgElement.src = obj.urlBase + '?t=' + new Date().getTime();
+    // Removido cache busting para permitir cache e reduzir downloads repetidos
+    imgElement.src = obj.urlBase; // Sem ?t=
 
-    if (loadTimeout) clearTimeout(loadTimeout);
+    if (loadTimeout) {
+        clearTimeout(loadTimeout);
+        loadTimeout = null;
+    }
     loadTimeout = setTimeout(function() {
         log('TIMEOUT: ' + imagens[idx].name);
         proxima();
@@ -177,7 +193,10 @@ function proxima() {
 }
 
 function skip() {
-    if (autoTimeout) clearTimeout(autoTimeout);
+    if (autoTimeout) {
+        clearTimeout(autoTimeout);
+        autoTimeout = null;
+    }
     proxima();
 }
 
@@ -186,7 +205,7 @@ function buildImagens() {
     var j = 0;
     imagens = [];
 
-    // Para cada uma das 10 imagens da raiz, adicionamos 3 carros + 1 raiz
+    // Para cada uma das imagens da raiz, adicionamos 3 carros + 1 raiz
     while (j < imagensRaiz.length) {
         var qtdCarros = Math.min(3, imagensCarros.length - i);
         for (var k = 0; k < qtdCarros; k++) {
@@ -198,7 +217,7 @@ function buildImagens() {
         j++;
     }
 
-    // Se sobrar alguma imagem de carro (não deve sobrar com 30 exatos)
+    // Se sobrar alguma imagem de carro
     while (i < imagensCarros.length) {
         imagens.push({urlBase: baseUrlCarros + imagensCarros[i], name: imagensCarros[i]});
         i++;
@@ -220,7 +239,16 @@ function checkLoaded() {
 }
 
 function loadManifest(url, arrayToFill, isRaiz) {
-    log('Carregando lista ' + (isRaiz ? 'raiz' : 'carros') + '...');
+    var type = isRaiz ? 'raiz' : 'carros';
+    if (retryCounts[type] >= maxRetries) {
+        log('Máximo de tentativas atingido para lista ' + type + '. Parando.');
+        checkLoaded(); // Prosseguir mesmo sem essa lista
+        return;
+    }
+    
+    log('Carregando lista ' + type + '...');
+    retryCounts[type]++;
+    
     var xhr = new XMLHttpRequest();
     xhr.open('GET', url, true);
     xhr.onreadystatechange = function() {
@@ -234,10 +262,11 @@ function loadManifest(url, arrayToFill, isRaiz) {
                         arrayToFill.push(linha);
                     }
                 }
-                log('Lista ' + (isRaiz ? 'raiz' : 'carros') + ' carregada: ' + arrayToFill.length + ' imagens');
+                log('Lista ' + type + ' carregada: ' + arrayToFill.length + ' imagens');
+                retryCounts[type] = 0; // Resetar contagem em sucesso
                 checkLoaded();
             } else {
-                log('Erro ao baixar lista ' + (isRaiz ? 'raiz' : 'carros') + '. Status: ' + xhr.status);
+                log('Erro ao baixar lista ' + type + '. Status: ' + xhr.status + ' (Tentativa ' + retryCounts[type] + '/' + maxRetries + ')');
                 setTimeout(function() { loadManifest(url, arrayToFill, isRaiz); }, 10000);
             }
         }
