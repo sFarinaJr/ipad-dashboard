@@ -5,16 +5,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>Dashboard Universal - Barra Corrigida</title>
+<title>Dashboard Universal</title>
 <style>
-* { margin:0; padding:0; border:0; box-sizing:border-box; }
+* { margin:0; padding:0; border:0; }
 html, body { height:100%; width:100%; background:#000; overflow:hidden; font-family:sans-serif; }
 
-/* Imagem em tela cheia */
+/* Imagem ocupa tela toda */
 #mainImage { 
-    width:100%; 
-    height:100%; 
-    object-fit: contain; /* 'cover' se quiser preencher sem bordas brancas */
+    width:100% !important; 
+    height:100% !important; 
     display:block; 
     position: absolute;
     top: 0;
@@ -27,17 +26,18 @@ html, body { height:100%; width:100%; background:#000; overflow:hidden; font-fam
     left:0; 
     right:0; 
     z-index:999; 
-    background:rgba(11,94,215,0.8); 
+    background:#0b5ed7; 
     color:#fff; 
-    padding:8px; 
+    padding: 6px 10px 6px 10ch;
     font-size:13px; 
     font-family:monospace; 
     white-space:nowrap; 
     overflow:hidden; 
     text-overflow:ellipsis; 
+    opacity: 0.7; 
 }
 
-/* Barra de progresso */
+/* Barra de progressão */
 .progress-container { 
     position:fixed; 
     bottom:0; 
@@ -50,201 +50,228 @@ html, body { height:100%; width:100%; background:#000; overflow:hidden; font-fam
 
 .progress-bg { 
     position:absolute; 
-    inset:0; 
+    top:0; 
+    right:0; 
+    bottom:0; 
+    left:0; 
     background: -webkit-linear-gradient(left, #4a90e2, #f39c12 60%, #e74c3c); 
 }
 
 .progress-mask { 
     position:absolute; 
-    inset:0; 
+    top:0; 
+    bottom:0; 
+    left:0; 
     background:#000; 
     width:100%; 
-    will-change: width; /* ajuda performance em dispositivos antigos */
+    -webkit-animation: shrink 300s linear forwards; 
+    animation: shrink 300s linear forwards; 
+    z-index:1; 
 }
 
+@-webkit-keyframes shrink { from {width:100%} to {width:0%} }
+@keyframes shrink { from {width:100%} to {width:0%} }
+
+/* Escala de tempo */
 .scale { 
     position:absolute; 
-    inset:0; 
+    top:0; 
+    left:0; 
+    width:100%; 
+    height:28px; 
     z-index:101; 
     color:white; 
     font-size:14px; 
     font-weight:bold; 
-    text-shadow:0 0 3px #000; 
+    text-shadow:0 0 4px #000; 
 }
 
 .scale span { 
-    float:left; 
-    width:20%; 
-    text-align:center; 
-    line-height:28px; 
+    display: block;
+    float: left;
+    width: 20%;
+    text-align: center;
+    line-height: 28px;
 }
 </style>
 </head>
 <body onclick="skip()">
 
-<div id="debug">Iniciando... (barra corrigida)</div>
-
-<img id="mainImage" src="" alt="Dashboard">
+<div id="debug">Iniciando...</div>
+<img id="mainImage" src="" alt="Dashboard" onload="onImageLoad()" onerror="onImageError()">
 
 <div class="progress-container">
   <div class="progress-bg"></div>
   <div class="progress-mask" id="progressMask"></div>
   <div class="scale">
-    <span>5m</span><span>4m</span><span>3m</span><span>2m</span><span>1m</span>
+      <span>5m</span><span>4m</span><span>3m</span><span>2m</span><span>1m</span>
   </div>
 </div>
 
 <script>
-// Configurações
-const TEMPO_TROCA_MS = 5 * 60 * 1000;     // 5 minutos
-const TEMPO_RELOAD_PAGINA = 4 * 3600 * 1000; // 4 horas para reset de memória
+var repoUrl = 'https://raw.githubusercontent.com/sfarinajr/ipad-dashboard/main/';
+var imagens = [];
+var idx = 0;
+var tempoTroca = 5 * 60 * 1000; // 5 minutos
+var loadTimeout = null;
+var autoTimeout = null;
+var startTime = new Date().getTime(); // Para log de tempo rodado
 
-const repoUrl = 'https://raw.githubusercontent.com/sfarinajr/ipad-dashboard/main/';
-const manifestRaiz   = repoUrl + 'imagensPNG.txt';
-const baseUrlRaiz    = repoUrl;
-const manifestCarros = repoUrl + 'carros/imagens_carros.txt';
-const baseUrlCarros  = repoUrl + 'carros/screenshots/';
+var debug = document.getElementById('debug');
+var imgElement = document.getElementById('mainImage');
+var progressMask = document.getElementById('progressMask');
 
-let imagens = [];
-let idx = 0;
-let loadTimeout = null;
-let autoTimeout = null;
-let startTime = Date.now();
+var baseUrlRaiz = repoUrl;
+var manifestRaiz = repoUrl + 'imagensPNG.txt';
+var baseUrlCarros = repoUrl + 'carros/screenshots/';
+var manifestCarros = repoUrl + 'carros/imagens_carros.txt';
 
-const debug = document.getElementById('debug');
-const img = document.getElementById('mainImage');
-const progressMask = document.getElementById('progressMask');
+var imagensRaiz = [];
+var imagensCarros = [];
+var loaded = 0;
 
-let imagensRaiz = [];
-let imagensCarros = [];
-let loaded = 0;
-
-// Recarrega página para limpar memória após 4h
-setTimeout(() => {
-    debug.innerHTML = '4h atingidas → recarregando para limpar RAM...';
-    setTimeout(() => location.reload(true), 2000);
-}, TEMPO_RELOAD_PAGINA);
+// Recarrega a página a cada 4 horas para resetar memória e evitar crash
+setTimeout(function() {
+    log('4h atingidas - Recarregando para limpar memória...');
+    location.reload(true);
+}, 4 * 60 * 60 * 1000); // 14400000 ms = 4 horas
 
 function log(msg) {
-    const minutos = Math.round((Date.now() - startTime) / 60000);
-    const total = imagens.length;
-    const pos = total > 0 ? ` (${idx+1}/${total})` : '';
-    debug.innerHTML = `${minutos}min | ${msg}${pos}`;
+    var minutosRodados = Math.floor((new Date().getTime() - startTime) / 60000);
+    var total = imagens.length;
+    var num = (idx + 1);
+    var pos = total > 0 ? ' (' + num + '/' + total + ')' : '';
+    debug.innerHTML = minutosRodados + 'min | ' + msg + pos;
 }
 
 function resetProgress() {
-    progressMask.style.transition = 'none';
-    progressMask.style.width = '100%';
+    progressMask.style.webkitAnimation = 'none';
+    progressMask.style.animation = 'none'; // Adicionado para compatibilidade
     progressMask.offsetHeight; // força reflow
-
-    // Aplica animação com duração exata
-    progressMask.style.transition = `width ${TEMPO_TROCA_MS}ms linear`;
-    progressMask.style.width = '0%';
+    progressMask.style.webkitAnimation = 'shrink 300s linear forwards';
+    progressMask.style.animation = 'shrink 300s linear forwards';
 }
 
 function onImageLoad() {
-    clearTimeouts();
+    if (loadTimeout) {
+        clearTimeout(loadTimeout);
+        loadTimeout = null;
+    }
     resetProgress();
-    log(`OK: ${imagens[idx].name}`);
-    autoTimeout = setTimeout(proxima, TEMPO_TROCA_MS);
+    log(imagens[idx].name);
+    if (autoTimeout) {
+        clearTimeout(autoTimeout);
+        autoTimeout = null;
+    }
+    autoTimeout = setTimeout(proxima, tempoTroca);
 }
 
 function onImageError() {
-    clearTimeouts();
-    log(`ERRO: ${imagens[idx].name}`);
-    setTimeout(proxima, 8000);
-}
-
-function clearTimeouts() {
-    if (loadTimeout) clearTimeout(loadTimeout);
-    if (autoTimeout) clearTimeout(autoTimeout);
-    loadTimeout = autoTimeout = null;
+    if (loadTimeout) {
+        clearTimeout(loadTimeout);
+        loadTimeout = null;
+    }
+    log('ERRO: ' + imagens[idx].name);
+    setTimeout(proxima, 5000);
 }
 
 function mostrarImagem() {
-    if (!imagens.length) return;
+    if (imagens.length === 0) return;
+    var obj = imagens[idx];
     
-    img.src = ''; // limpa para forçar reload em alguns casos
-    img.src = imagens[idx].urlBase;
+    imgElement.src = ''; // Limpa src para ajudar GC de memória
+    imgElement.src = obj.urlBase; // Sem ?t= para permitir cache
 
-    clearTimeouts();
-    loadTimeout = setTimeout(() => {
-        log(`TIMEOUT: ${imagens[idx].name}`);
+    if (loadTimeout) {
+        clearTimeout(loadTimeout);
+        loadTimeout = null;
+    }
+    loadTimeout = setTimeout(function() {
+        log('TIMEOUT: ' + imagens[idx].name);
         proxima();
-    }, 20000);
+    }, 30000);
 }
 
 function proxima() {
+    if (imagens.length === 0) return;
     idx = (idx + 1) % imagens.length;
     mostrarImagem();
 }
 
 function skip() {
-    clearTimeouts();
+    if (autoTimeout) {
+        clearTimeout(autoTimeout);
+        autoTimeout = null;
+    }
     proxima();
 }
 
 function buildImagens() {
-    let i = 0, j = 0;
+    var i = 0;
+    var j = 0;
     imagens = [];
 
+    // Para cada uma das 10 imagens da raiz, adicionamos 3 carros + 1 raiz
     while (j < imagensRaiz.length) {
-        const qtd = Math.min(3, imagensCarros.length - i);
-        for (let k = 0; k < qtd; k++) {
+        var qtdCarros = Math.min(3, imagensCarros.length - i);
+        for (var k = 0; k < qtdCarros; k++) {
             imagens.push({urlBase: baseUrlCarros + imagensCarros[i], name: imagensCarros[i]});
             i++;
         }
+
         imagens.push({urlBase: baseUrlRaiz + imagensRaiz[j], name: imagensRaiz[j]});
         j++;
     }
 
+    // Se sobrar alguma imagem de carro (não deve sobrar com 30 exatos)
     while (i < imagensCarros.length) {
         imagens.push({urlBase: baseUrlCarros + imagensCarros[i], name: imagensCarros[i]});
         i++;
     }
 
-    if (imagens.length) {
-        log(`Lista OK: ${imagens.length} imagens (10 raiz + 30 carros)`);
+    if (imagens.length > 0) {
+        log('Lista mesclada carregada: ' + imagens.length + ' imagens (3 carros : 1 raiz)');
         mostrarImagem();
     } else {
-        log('Lista vazia!');
+        log('Erro: Lista vazia');
     }
 }
 
 function checkLoaded() {
     loaded++;
-    if (loaded === 2) buildImagens();
+    if (loaded === 2) {
+        buildImagens();
+    }
 }
 
-function loadManifest(url, arr, tipo) {
-    const xhr = new XMLHttpRequest();
+function loadManifest(url, arrayToFill, isRaiz) {
+    log('Carregando lista ' + (isRaiz ? 'raiz' : 'carros') + '...');
+    var xhr = new XMLHttpRequest();
     xhr.open('GET', url, true);
-    xhr.timeout = 15000;
-    xhr.onreadystatechange = () => {
+    xhr.onreadystatechange = function() {
         if (xhr.readyState === 4) {
             if (xhr.status === 200) {
-                const linhas = (xhr.responseText || '').split('\n');
-                for (let ln of linhas) {
-                    ln = ln.trim();
-                    if (ln && /\.png$/i.test(ln)) arr.push(ln);
+                var texto = xhr.responseText || '';
+                var linhas = texto.split('\n');
+                for (var i = 0; i < linhas.length; i++) {
+                    var linha = linhas[i].trim();
+                    if (linha && (linha.indexOf('.png') > -1 || linha.indexOf('.PNG') > -1)) {
+                        arrayToFill.push(linha);
+                    }
                 }
-                log(`Manifest ${tipo}: ${arr.length} itens`);
+                log('Lista ' + (isRaiz ? 'raiz' : 'carros') + ' carregada: ' + arrayToFill.length + ' imagens');
                 checkLoaded();
             } else {
-                log(`Erro manifest ${tipo} (${xhr.status}) → retry 10s`);
-                setTimeout(() => loadManifest(url, arr, tipo), 10000);
+                log('Erro ao baixar lista ' + (isRaiz ? 'raiz' : 'carros') + '. Status: ' + xhr.status);
+                setTimeout(function() { loadManifest(url, arrayToFill, isRaiz); }, 10000);
             }
         }
-    };
-    xhr.ontimeout = () => {
-        log(`Timeout manifest ${tipo} → retry`);
-        setTimeout(() => loadManifest(url, arr, tipo), 10000);
     };
     xhr.send();
 }
 
-loadManifest(manifestRaiz,   imagensRaiz,   'raiz');
-loadManifest(manifestCarros, imagensCarros, 'carros');
+loadManifest(manifestRaiz, imagensRaiz, true);
+loadManifest(manifestCarros, imagensCarros, false);
 </script>
 </body>
 </html>
