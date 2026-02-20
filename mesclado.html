@@ -5,15 +5,16 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>Dashboard Universal</title>
+<title>Dashboard Universal - Estável</title>
 <style>
-* { margin:0; padding:0; border:0; }
+* { margin:0; padding:0; border:0; box-sizing:border-box; }
 html, body { height:100%; width:100%; background:#000; overflow:hidden; font-family:sans-serif; }
 
-/* Imagem ocupa tela toda */
+/* Imagem em tela cheia */
 #mainImage { 
-    width:100% !important; 
-    height:100% !important; 
+    width:100%; 
+    height:100%; 
+    object-fit: contain; /* ou 'cover' se preferir cortar bordas */
     display:block; 
     position: absolute;
     top: 0;
@@ -26,18 +27,17 @@ html, body { height:100%; width:100%; background:#000; overflow:hidden; font-fam
     left:0; 
     right:0; 
     z-index:999; 
-    background:#0b5ed7; 
+    background:rgba(11,94,215,0.8); 
     color:#fff; 
-    padding: 6px 10px 6px 10ch;
+    padding:8px; 
     font-size:13px; 
     font-family:monospace; 
     white-space:nowrap; 
     overflow:hidden; 
     text-overflow:ellipsis; 
-    opacity: 0.7; 
 }
 
-/* Barra de progressão */
+/* Barra de tempo */
 .progress-container { 
     position:fixed; 
     bottom:0; 
@@ -50,18 +50,13 @@ html, body { height:100%; width:100%; background:#000; overflow:hidden; font-fam
 
 .progress-bg { 
     position:absolute; 
-    top:0; 
-    right:0; 
-    bottom:0; 
-    left:0; 
+    inset:0; 
     background: -webkit-linear-gradient(left, #4a90e2, #f39c12 60%, #e74c3c); 
 }
 
 .progress-mask { 
     position:absolute; 
-    top:0; 
-    bottom:0; 
-    left:0; 
+    inset:0 0 0 0; 
     background:#000; 
     width:100%; 
     -webkit-animation: shrink 300s linear forwards; 
@@ -72,204 +67,183 @@ html, body { height:100%; width:100%; background:#000; overflow:hidden; font-fam
 @-webkit-keyframes shrink { from {width:100%} to {width:0%} }
 @keyframes shrink { from {width:100%} to {width:0%} }
 
-/* Escala de tempo */
 .scale { 
     position:absolute; 
-    top:0; 
-    left:0; 
-    width:100%; 
-    height:28px; 
+    inset:0; 
     z-index:101; 
     color:white; 
     font-size:14px; 
     font-weight:bold; 
-    text-shadow:0 0 4px #000; 
+    text-shadow:0 0 3px #000; 
 }
 
 .scale span { 
-    display: block;
-    float: left;
-    width: 20%;
-    text-align: center;
-    line-height: 28px;
+    float:left; 
+    width:20%; 
+    text-align:center; 
+    line-height:28px; 
 }
 </style>
 </head>
 <body onclick="skip()">
 
-<div id="debug">Iniciando...</div>
-<img id="mainImage" src="" alt="Dashboard" onload="onImageLoad()" onerror="onImageError()">
+<div id="debug">Iniciando... (iPad mode estável)</div>
+
+<img id="mainImage" src="" alt="Dashboard">
 
 <div class="progress-container">
   <div class="progress-bg"></div>
   <div class="progress-mask" id="progressMask"></div>
   <div class="scale">
-      <span>5m</span><span>4m</span><span>3m</span><span>2m</span><span>1m</span>
+    <span>5m</span><span>4m</span><span>3m</span><span>2m</span><span>1m</span>
   </div>
 </div>
 
 <script>
+// Configurações
 var repoUrl = 'https://raw.githubusercontent.com/sfarinajr/ipad-dashboard/main/';
-var imagens = [];
-var idx = 0;
-var tempoTroca = 5 * 60 * 1000; // 5 minutos
-var loadTimeout = null;
-var autoTimeout = null;
-
-var debug = document.getElementById('debug');
-var imgElement = document.getElementById('mainImage');
-var progressMask = document.getElementById('progressMask');
-
-var baseUrlRaiz = repoUrl;
-var manifestRaiz = repoUrl + 'imagensPNG.txt';
+var baseUrlRaiz   = repoUrl;
+var manifestRaiz  = repoUrl + 'imagensPNG.txt';
 var baseUrlCarros = repoUrl + 'carros/screenshots/';
 var manifestCarros = repoUrl + 'carros/imagens_carros.txt';
+
+var tempoTroca = 5 * 60 * 1000;      // 5 minutos
+var tempoReloadPagina = 4 * 3600 * 1000; // 4 horas = reset total de memória
+
+var imagens = [];
+var idx = 0;
+var loadTimeout = null;
+var autoTimeout = null;
+var startTime = Date.now();
+
+var debug = document.getElementById('debug');
+var img = document.getElementById('mainImage');
+var progressMask = document.getElementById('progressMask');
 
 var imagensRaiz = [];
 var imagensCarros = [];
 var loaded = 0;
-var retryCounts = { raiz: 0, carros: 0 };
-var maxRetries = 5; // Limite de tentativas para carregar manifests
+
+// Recarrega a página inteira para limpar memória
+setTimeout(function() {
+    debug.innerHTML = '4h atingidas → recarregando página para limpar memória...';
+    setTimeout(function() { location.reload(true); }, 2000);
+}, tempoReloadPagina);
 
 function log(msg) {
+    var minutos = Math.round((Date.now() - startTime)/60000);
     var total = imagens.length;
-    var num = (idx + 1);
-    var pos = total > 0 ? ' (' + num + '/' + total + ')' : '';
-    debug.innerHTML = msg + pos;
+    var pos = total > 0 ? ' (' + (idx+1) + '/' + total + ')' : '';
+    debug.innerHTML = minutos + 'min | ' + msg + pos;
 }
 
 function resetProgress() {
-    progressMask.style.webkitAnimation = 'none';
     progressMask.style.animation = 'none';
-    progressMask.offsetHeight; // força reflow
-    progressMask.style.webkitAnimation = 'shrink 300s linear forwards';
+    progressMask.style.webkitAnimation = 'none';
+    progressMask.offsetHeight; // reflow
     progressMask.style.animation = 'shrink 300s linear forwards';
+    progressMask.style.webkitAnimation = 'shrink 300s linear forwards';
 }
 
 function onImageLoad() {
-    if (loadTimeout) {
-        clearTimeout(loadTimeout);
-        loadTimeout = null;
-    }
+    clearTimeouts();
     resetProgress();
-    log(imagens[idx].name);
-    if (autoTimeout) {
-        clearTimeout(autoTimeout);
-        autoTimeout = null;
-    }
+    log('OK: ' + imagens[idx].name);
     autoTimeout = setTimeout(proxima, tempoTroca);
 }
 
 function onImageError() {
-    if (loadTimeout) {
-        clearTimeout(loadTimeout);
-        loadTimeout = null;
-    }
+    clearTimeouts();
     log('ERRO: ' + imagens[idx].name);
-    setTimeout(proxima, 5000);
+    setTimeout(proxima, 8000); // espera menos que antes
+}
+
+function clearTimeouts() {
+    if (loadTimeout) clearTimeout(loadTimeout);
+    if (autoTimeout) clearTimeout(autoTimeout);
+    loadTimeout = autoTimeout = null;
 }
 
 function mostrarImagem() {
-    if (imagens.length === 0) return;
-    var obj = imagens[idx];
+    if (!imagens.length) return;
     
-    // Removido cache busting para permitir cache e reduzir downloads repetidos
-    imgElement.src = obj.urlBase; // Sem ?t=
+    // Limpa src primeiro (ajuda memória em Safari antigo)
+    img.src = '';
+    img.src = imagens[idx].urlBase;
 
-    if (loadTimeout) {
-        clearTimeout(loadTimeout);
-        loadTimeout = null;
-    }
+    clearTimeouts();
     loadTimeout = setTimeout(function() {
         log('TIMEOUT: ' + imagens[idx].name);
         proxima();
-    }, 30000);
+    }, 20000);
 }
 
 function proxima() {
-    if (imagens.length === 0) return;
     idx = (idx + 1) % imagens.length;
     mostrarImagem();
 }
 
 function skip() {
-    if (autoTimeout) {
-        clearTimeout(autoTimeout);
-        autoTimeout = null;
-    }
+    clearTimeouts();
     proxima();
 }
 
 function buildImagens() {
-    var i = 0;
-    var j = 0;
+    var i = 0, j = 0;
     imagens = [];
 
-    // Para cada uma das imagens da raiz, adicionamos 3 carros + 1 raiz
     while (j < imagensRaiz.length) {
-        var qtdCarros = Math.min(3, imagensCarros.length - i);
-        for (var k = 0; k < qtdCarros; k++) {
+        var qtd = Math.min(3, imagensCarros.length - i);
+        for (var k = 0; k < qtd; k++) {
             imagens.push({urlBase: baseUrlCarros + imagensCarros[i], name: imagensCarros[i]});
             i++;
         }
-
         imagens.push({urlBase: baseUrlRaiz + imagensRaiz[j], name: imagensRaiz[j]});
         j++;
     }
 
-    // Se sobrar alguma imagem de carro
     while (i < imagensCarros.length) {
         imagens.push({urlBase: baseUrlCarros + imagensCarros[i], name: imagensCarros[i]});
         i++;
     }
 
-    if (imagens.length > 0) {
-        log('Lista mesclada carregada: ' + imagens.length + ' imagens (3 carros : 1 raiz)');
+    if (imagens.length) {
+        log('Lista OK: ' + imagens.length + ' imgs');
         mostrarImagem();
     } else {
-        log('Erro: Lista vazia');
+        log('Lista vazia!');
     }
 }
 
 function checkLoaded() {
     loaded++;
-    if (loaded === 2) {
-        buildImagens();
-    }
+    if (loaded === 2) buildImagens();
 }
 
-function loadManifest(url, arrayToFill, isRaiz) {
-    var type = isRaiz ? 'raiz' : 'carros';
-    if (retryCounts[type] >= maxRetries) {
-        log('Máximo de tentativas atingido para lista ' + type + '. Parando.');
-        checkLoaded(); // Prosseguir mesmo sem essa lista
-        return;
-    }
-    
-    log('Carregando lista ' + type + '...');
-    retryCounts[type]++;
-    
+function loadManifest(url, arr, isRaiz) {
+    var tipo = isRaiz ? 'raiz' : 'carros';
     var xhr = new XMLHttpRequest();
     xhr.open('GET', url, true);
+    xhr.timeout = 15000;
     xhr.onreadystatechange = function() {
         if (xhr.readyState === 4) {
             if (xhr.status === 200) {
-                var texto = xhr.responseText || '';
-                var linhas = texto.split('\n');
+                var linhas = (xhr.responseText || '').split('\n');
                 for (var i = 0; i < linhas.length; i++) {
-                    var linha = linhas[i].trim();
-                    if (linha && (linha.indexOf('.png') > -1 || linha.indexOf('.PNG') > -1)) {
-                        arrayToFill.push(linha);
-                    }
+                    var ln = linhas[i].trim();
+                    if (ln && /\.png$/i.test(ln)) arr.push(ln);
                 }
-                log('Lista ' + type + ' carregada: ' + arrayToFill.length + ' imagens');
-                retryCounts[type] = 0; // Resetar contagem em sucesso
+                log('Manifest ' + tipo + ': ' + arr.length + ' itens');
                 checkLoaded();
             } else {
-                log('Erro ao baixar lista ' + type + '. Status: ' + xhr.status + ' (Tentativa ' + retryCounts[type] + '/' + maxRetries + ')');
-                setTimeout(function() { loadManifest(url, arrayToFill, isRaiz); }, 10000);
+                log('Erro manifest ' + tipo + ' (' + xhr.status + ') → retry em 10s');
+                setTimeout(function(){ loadManifest(url, arr, isRaiz); }, 10000);
             }
         }
+    };
+    xhr.ontimeout = function() {
+        log('Timeout manifest ' + tipo + ' → retry');
+        setTimeout(function(){ loadManifest(url, arr, isRaiz); }, 10000);
     };
     xhr.send();
 }
