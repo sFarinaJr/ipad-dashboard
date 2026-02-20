@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>Dashboard Universal - Estável</title>
+<title>Dashboard Universal - Barra Corrigida</title>
 <style>
 * { margin:0; padding:0; border:0; box-sizing:border-box; }
 html, body { height:100%; width:100%; background:#000; overflow:hidden; font-family:sans-serif; }
@@ -14,7 +14,7 @@ html, body { height:100%; width:100%; background:#000; overflow:hidden; font-fam
 #mainImage { 
     width:100%; 
     height:100%; 
-    object-fit: contain; /* ou 'cover' se preferir cortar bordas */
+    object-fit: contain; /* 'cover' se quiser preencher sem bordas brancas */
     display:block; 
     position: absolute;
     top: 0;
@@ -37,7 +37,7 @@ html, body { height:100%; width:100%; background:#000; overflow:hidden; font-fam
     text-overflow:ellipsis; 
 }
 
-/* Barra de tempo */
+/* Barra de progresso */
 .progress-container { 
     position:fixed; 
     bottom:0; 
@@ -56,16 +56,11 @@ html, body { height:100%; width:100%; background:#000; overflow:hidden; font-fam
 
 .progress-mask { 
     position:absolute; 
-    inset:0 0 0 0; 
+    inset:0; 
     background:#000; 
     width:100%; 
-    -webkit-animation: shrink 300s linear forwards; 
-    animation: shrink 300s linear forwards; 
-    z-index:1; 
+    will-change: width; /* ajuda performance em dispositivos antigos */
 }
-
-@-webkit-keyframes shrink { from {width:100%} to {width:0%} }
-@keyframes shrink { from {width:100%} to {width:0%} }
 
 .scale { 
     position:absolute; 
@@ -87,7 +82,7 @@ html, body { height:100%; width:100%; background:#000; overflow:hidden; font-fam
 </head>
 <body onclick="skip()">
 
-<div id="debug">Iniciando... (iPad mode estável)</div>
+<div id="debug">Iniciando... (barra corrigida)</div>
 
 <img id="mainImage" src="" alt="Dashboard">
 
@@ -101,61 +96,63 @@ html, body { height:100%; width:100%; background:#000; overflow:hidden; font-fam
 
 <script>
 // Configurações
-var repoUrl = 'https://raw.githubusercontent.com/sfarinajr/ipad-dashboard/main/';
-var baseUrlRaiz   = repoUrl;
-var manifestRaiz  = repoUrl + 'imagensPNG.txt';
-var baseUrlCarros = repoUrl + 'carros/screenshots/';
-var manifestCarros = repoUrl + 'carros/imagens_carros.txt';
+const TEMPO_TROCA_MS = 5 * 60 * 1000;     // 5 minutos
+const TEMPO_RELOAD_PAGINA = 4 * 3600 * 1000; // 4 horas para reset de memória
 
-var tempoTroca = 5 * 60 * 1000;      // 5 minutos
-var tempoReloadPagina = 4 * 3600 * 1000; // 4 horas = reset total de memória
+const repoUrl = 'https://raw.githubusercontent.com/sfarinajr/ipad-dashboard/main/';
+const manifestRaiz   = repoUrl + 'imagensPNG.txt';
+const baseUrlRaiz    = repoUrl;
+const manifestCarros = repoUrl + 'carros/imagens_carros.txt';
+const baseUrlCarros  = repoUrl + 'carros/screenshots/';
 
-var imagens = [];
-var idx = 0;
-var loadTimeout = null;
-var autoTimeout = null;
-var startTime = Date.now();
+let imagens = [];
+let idx = 0;
+let loadTimeout = null;
+let autoTimeout = null;
+let startTime = Date.now();
 
-var debug = document.getElementById('debug');
-var img = document.getElementById('mainImage');
-var progressMask = document.getElementById('progressMask');
+const debug = document.getElementById('debug');
+const img = document.getElementById('mainImage');
+const progressMask = document.getElementById('progressMask');
 
-var imagensRaiz = [];
-var imagensCarros = [];
-var loaded = 0;
+let imagensRaiz = [];
+let imagensCarros = [];
+let loaded = 0;
 
-// Recarrega a página inteira para limpar memória
-setTimeout(function() {
-    debug.innerHTML = '4h atingidas → recarregando página para limpar memória...';
-    setTimeout(function() { location.reload(true); }, 2000);
-}, tempoReloadPagina);
+// Recarrega página para limpar memória após 4h
+setTimeout(() => {
+    debug.innerHTML = '4h atingidas → recarregando para limpar RAM...';
+    setTimeout(() => location.reload(true), 2000);
+}, TEMPO_RELOAD_PAGINA);
 
 function log(msg) {
-    var minutos = Math.round((Date.now() - startTime)/60000);
-    var total = imagens.length;
-    var pos = total > 0 ? ' (' + (idx+1) + '/' + total + ')' : '';
-    debug.innerHTML = minutos + 'min | ' + msg + pos;
+    const minutos = Math.round((Date.now() - startTime) / 60000);
+    const total = imagens.length;
+    const pos = total > 0 ? ` (${idx+1}/${total})` : '';
+    debug.innerHTML = `${minutos}min | ${msg}${pos}`;
 }
 
 function resetProgress() {
-    progressMask.style.animation = 'none';
-    progressMask.style.webkitAnimation = 'none';
-    progressMask.offsetHeight; // reflow
-    progressMask.style.animation = 'shrink 300s linear forwards';
-    progressMask.style.webkitAnimation = 'shrink 300s linear forwards';
+    progressMask.style.transition = 'none';
+    progressMask.style.width = '100%';
+    progressMask.offsetHeight; // força reflow
+
+    // Aplica animação com duração exata
+    progressMask.style.transition = `width ${TEMPO_TROCA_MS}ms linear`;
+    progressMask.style.width = '0%';
 }
 
 function onImageLoad() {
     clearTimeouts();
     resetProgress();
-    log('OK: ' + imagens[idx].name);
-    autoTimeout = setTimeout(proxima, tempoTroca);
+    log(`OK: ${imagens[idx].name}`);
+    autoTimeout = setTimeout(proxima, TEMPO_TROCA_MS);
 }
 
 function onImageError() {
     clearTimeouts();
-    log('ERRO: ' + imagens[idx].name);
-    setTimeout(proxima, 8000); // espera menos que antes
+    log(`ERRO: ${imagens[idx].name}`);
+    setTimeout(proxima, 8000);
 }
 
 function clearTimeouts() {
@@ -167,13 +164,12 @@ function clearTimeouts() {
 function mostrarImagem() {
     if (!imagens.length) return;
     
-    // Limpa src primeiro (ajuda memória em Safari antigo)
-    img.src = '';
+    img.src = ''; // limpa para forçar reload em alguns casos
     img.src = imagens[idx].urlBase;
 
     clearTimeouts();
-    loadTimeout = setTimeout(function() {
-        log('TIMEOUT: ' + imagens[idx].name);
+    loadTimeout = setTimeout(() => {
+        log(`TIMEOUT: ${imagens[idx].name}`);
         proxima();
     }, 20000);
 }
@@ -189,12 +185,12 @@ function skip() {
 }
 
 function buildImagens() {
-    var i = 0, j = 0;
+    let i = 0, j = 0;
     imagens = [];
 
     while (j < imagensRaiz.length) {
-        var qtd = Math.min(3, imagensCarros.length - i);
-        for (var k = 0; k < qtd; k++) {
+        const qtd = Math.min(3, imagensCarros.length - i);
+        for (let k = 0; k < qtd; k++) {
             imagens.push({urlBase: baseUrlCarros + imagensCarros[i], name: imagensCarros[i]});
             i++;
         }
@@ -208,7 +204,7 @@ function buildImagens() {
     }
 
     if (imagens.length) {
-        log('Lista OK: ' + imagens.length + ' imgs');
+        log(`Lista OK: ${imagens.length} imagens (10 raiz + 30 carros)`);
         mostrarImagem();
     } else {
         log('Lista vazia!');
@@ -220,36 +216,35 @@ function checkLoaded() {
     if (loaded === 2) buildImagens();
 }
 
-function loadManifest(url, arr, isRaiz) {
-    var tipo = isRaiz ? 'raiz' : 'carros';
-    var xhr = new XMLHttpRequest();
+function loadManifest(url, arr, tipo) {
+    const xhr = new XMLHttpRequest();
     xhr.open('GET', url, true);
     xhr.timeout = 15000;
-    xhr.onreadystatechange = function() {
+    xhr.onreadystatechange = () => {
         if (xhr.readyState === 4) {
             if (xhr.status === 200) {
-                var linhas = (xhr.responseText || '').split('\n');
-                for (var i = 0; i < linhas.length; i++) {
-                    var ln = linhas[i].trim();
+                const linhas = (xhr.responseText || '').split('\n');
+                for (let ln of linhas) {
+                    ln = ln.trim();
                     if (ln && /\.png$/i.test(ln)) arr.push(ln);
                 }
-                log('Manifest ' + tipo + ': ' + arr.length + ' itens');
+                log(`Manifest ${tipo}: ${arr.length} itens`);
                 checkLoaded();
             } else {
-                log('Erro manifest ' + tipo + ' (' + xhr.status + ') → retry em 10s');
-                setTimeout(function(){ loadManifest(url, arr, isRaiz); }, 10000);
+                log(`Erro manifest ${tipo} (${xhr.status}) → retry 10s`);
+                setTimeout(() => loadManifest(url, arr, tipo), 10000);
             }
         }
     };
-    xhr.ontimeout = function() {
-        log('Timeout manifest ' + tipo + ' → retry');
-        setTimeout(function(){ loadManifest(url, arr, isRaiz); }, 10000);
+    xhr.ontimeout = () => {
+        log(`Timeout manifest ${tipo} → retry`);
+        setTimeout(() => loadManifest(url, arr, tipo), 10000);
     };
     xhr.send();
 }
 
-loadManifest(manifestRaiz, imagensRaiz, true);
-loadManifest(manifestCarros, imagensCarros, false);
+loadManifest(manifestRaiz,   imagensRaiz,   'raiz');
+loadManifest(manifestCarros, imagensCarros, 'carros');
 </script>
 </body>
 </html>
