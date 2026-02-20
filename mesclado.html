@@ -1,244 +1,283 @@
 <!DOCTYPE html>
-<html>
+<html lang="pt-br">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Dashboard Blindado</title>
-
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Dashboard Universal</title>
 <style>
-html, body {
-    margin:0;
-    padding:0;
-    background:#000;
-    height:100%;
-    overflow:hidden;
-    font-family: monospace;
+* { margin:0; padding:0; border:0; }
+html, body { height:100%; width:100%; background:#000; overflow:hidden; font-family:sans-serif; }
+
+/* Imagem ocupa tela toda */
+#mainImage { 
+    width:100% !important; 
+    height:100% !important; 
+    display:block; 
+    position: absolute;
+    top: 0;
+    left: 0;
 }
 
-#img {
-    position:absolute;
-    top:0;
-    left:0;
-    width:100%;
-    height:100%;
+#debug { 
+    position:fixed; 
+    top:0; 
+    left:0; 
+    right:0; 
+    z-index:999; 
+    background:#0b5ed7; 
+    color:#fff; 
+    padding: 6px 10px 6px 10ch;
+    font-size:13px; 
+    font-family:monospace; 
+    white-space:nowrap; 
+    overflow:hidden; 
+    text-overflow:ellipsis; 
+    opacity: 0.7; 
 }
 
-#debug {
-    position:fixed;
-    top:0;
-    left:0;
-    right:0;
-    background:#0b5ed7;
-    color:#fff;
-    font-size:13px;
-    padding:5px;
-    z-index:1000;
-    opacity:0.85;
-    white-space:nowrap;
-    overflow:hidden;
+/* Barra de progressão */
+.progress-container { 
+    position:fixed; 
+    bottom:0; 
+    left:0; 
+    right:0; 
+    height:28px; 
+    background:#222; 
+    z-index:100; 
 }
 
-#barContainer {
-    position:fixed;
-    bottom:0;
-    left:0;
-    width:100%;
-    height:25px;
-    background:#222;
+.progress-bg { 
+    position:absolute; 
+    top:0; 
+    right:0; 
+    bottom:0; 
+    left:0; 
+    background: -webkit-linear-gradient(left, #4a90e2, #f39c12 60%, #e74c3c); 
 }
 
-#bar {
-    height:100%;
-    width:100%;
-    background:#4a90e2;
+.progress-mask { 
+    position:absolute; 
+    top:0; 
+    bottom:0; 
+    left:0; 
+    background:#000; 
+    width:100%; 
+    -webkit-animation: shrink 300s linear forwards; 
+    animation: shrink 300s linear forwards; 
+    z-index:1; 
+}
+
+@-webkit-keyframes shrink { from {width:100%} to {width:0%} }
+@keyframes shrink { from {width:100%} to {width:0%} }
+
+/* Escala de tempo */
+.scale { 
+    position:absolute; 
+    top:0; 
+    left:0; 
+    width:100%; 
+    height:28px; 
+    z-index:101; 
+    color:white; 
+    font-size:14px; 
+    font-weight:bold; 
+    text-shadow:0 0 4px #000; 
+}
+
+.scale span { 
+    display: block;
+    float: left;
+    width: 20%;
+    text-align: center;
+    line-height: 28px;
 }
 </style>
 </head>
-
-<body onclick="proxima()">
+<body onclick="skip()">
 
 <div id="debug">Iniciando...</div>
-<img id="img">
-<div id="barContainer">
-    <div id="bar"></div>
+<img id="mainImage" src="" alt="Dashboard" onload="onImageLoad()" onerror="onImageError()">
+
+<div class="progress-container">
+  <div class="progress-bg"></div>
+  <div class="progress-mask" id="progressMask"></div>
+  <div class="scale">
+      <span>5m</span><span>4m</span><span>3m</span><span>2m</span><span>1m</span>
+  </div>
 </div>
 
 <script>
-
-// ===================== CONFIG =====================
-var repo = "https://raw.githubusercontent.com/sfarinajr/ipad-dashboard/main/";
-var tempoTotal = 300; // 5 minutos
-var reloadPreventivo = 90 * 60 * 1000; // 90 minutos
-// ==================================================
-
-var listaRaiz = [];
-var listaCarros = [];
+var repoUrl = 'https://raw.githubusercontent.com/sfarinajr/ipad-dashboard/main/';
 var imagens = [];
-
 var idx = 0;
-var tempoRestante = tempoTotal;
-var inicio = new Date().getTime();
-var img = document.getElementById("img");
-var debug = document.getElementById("debug");
-var bar = document.getElementById("bar");
-var carregadas = 0;
-var erroContador = 0;
+var tempoTroca = 5 * 60 * 1000; // 5 minutos
+var loadTimeout = null;
+var autoTimeout = null;
+var startTime = new Date().getTime(); // Para log de tempo rodado
 
+var debug = document.getElementById('debug');
+var imgElement = document.getElementById('mainImage');
+var progressMask = document.getElementById('progressMask');
 
-// ===================== RELOAD PREVENTIVO =====================
-setTimeout(function(){
-    debug.innerHTML = "Reload preventivo...";
+var baseUrlRaiz = repoUrl;
+var manifestRaiz = repoUrl + 'imagensPNG.txt';
+var baseUrlCarros = repoUrl + 'carros/screenshots/';
+var manifestCarros = repoUrl + 'carros/imagens_carros.txt';
+
+var imagensRaiz = [];
+var imagensCarros = [];
+var loaded = 0;
+
+// Recarrega a página a cada 2 horas para resetar memória e evitar crash (ajuste para 4* se precisar)
+setTimeout(function() {
+    log('2h atingidas - Recarregando para limpar memória...');
     location.reload(true);
-}, reloadPreventivo);
+}, 2 * 60 * 60 * 1000); // 7200000 ms = 2 horas
 
-
-// ===================== DEBUG =====================
 function log(msg) {
-    var minutos = Math.floor((new Date().getTime() - inicio)/60000);
+    var minutosRodados = Math.floor((new Date().getTime() - startTime) / 60000);
     var total = imagens.length;
-    var pos = total > 0 ? " (" + (idx+1) + "/" + total + ")" : "";
-    debug.innerHTML = minutos + "m | " + msg + pos;
+    var num = (idx + 1);
+    var pos = total > 0 ? ' (' + num + '/' + total + ')' : '';
+    debug.innerHTML = minutosRodados + 'min | ' + msg + pos;
 }
 
+function resetProgress() {
+    progressMask.style.webkitAnimation = 'none';
+    progressMask.style.animation = 'none'; // Adicionado para compatibilidade
+    progressMask.offsetHeight; // força reflow
+    progressMask.style.webkitAnimation = 'shrink 300s linear forwards';
+    progressMask.style.animation = 'shrink 300s linear forwards';
+}
 
-// ===================== LOOP PRINCIPAL (ÚNICO TIMER) =====================
-setInterval(function(){
-
-    if (imagens.length === 0) return;
-
-    tempoRestante--;
-
-    bar.style.width = (tempoRestante / tempoTotal) * 100 + "%";
-
-    if (tempoRestante <= 0) {
-        proxima();
+function onImageLoad() {
+    if (loadTimeout) {
+        clearTimeout(loadTimeout);
+        loadTimeout = null;
     }
-
-}, 1000);
-
-
-// ===================== TROCAR IMAGEM =====================
-function mostrar() {
-
-    if (imagens.length === 0) return;
-
-    // LIMPEZA REAL DE MEMÓRIA
-    img.src = "";
-    img.removeAttribute("src");
-
-    setTimeout(function(){
-        img.src = imagens[idx];
-        log(imagens[idx]);
-    }, 100); // pequeno delay protege Safari antigo
+    // Check se imagem é high-res (ex: >2000px wide, possivelmente 4K) e skip se for
+    if (imgElement.naturalWidth > 2000 || imgElement.naturalHeight > 1000) {
+        log('SKIP: Imagem high-res detectada (' + imagens[idx].name + ')');
+        proxima();
+        return;
+    }
+    resetProgress();
+    log(imagens[idx].name);
+    if (autoTimeout) {
+        clearTimeout(autoTimeout);
+        autoTimeout = null;
+    }
+    autoTimeout = setTimeout(proxima, tempoTroca);
 }
 
+function onImageError() {
+    if (loadTimeout) {
+        clearTimeout(loadTimeout);
+        loadTimeout = null;
+    }
+    log('ERRO: ' + imagens[idx].name);
+    setTimeout(proxima, 5000);
+}
+
+function mostrarImagem() {
+    if (imagens.length === 0) return;
+    var obj = imagens[idx];
+    
+    imgElement.src = ''; // Limpa src para ajudar GC de memória
+    imgElement.src = obj.urlBase; // Sem ?t= para permitir cache
+
+    if (loadTimeout) {
+        clearTimeout(loadTimeout);
+        loadTimeout = null;
+    }
+    loadTimeout = setTimeout(function() {
+        log('TIMEOUT: ' + imagens[idx].name);
+        proxima();
+    }, 30000);
+}
 
 function proxima() {
-
     if (imagens.length === 0) return;
-
-    tempoRestante = tempoTotal;
-
-    idx++;
-    if (idx >= imagens.length) idx = 0;
-
-    mostrar();
+    idx = (idx + 1) % imagens.length;
+    mostrarImagem();
 }
 
-
-// ===================== ERRO DE IMAGEM =====================
-img.onerror = function() {
-    erroContador++;
-    log("Erro imagem. Pulando...");
-    setTimeout(proxima, 2000);
-
-    if (erroContador > 10) {
-        log("Muitos erros. Reiniciando...");
-        location.reload(true);
+function skip() {
+    if (autoTimeout) {
+        clearTimeout(autoTimeout);
+        autoTimeout = null;
     }
-};
+    proxima();
+}
 
-
-// ===================== MONTAR LISTA 3:1 =====================
-function montarLista() {
-
+function buildImagens() {
     var i = 0;
     var j = 0;
+    imagens = [];
 
-    while (j < listaRaiz.length) {
-
-        var k = 0;
-        while (k < 3 && i < listaCarros.length) {
-            imagens.push(repo + "carros/screenshots/" + listaCarros[i]);
+    // Para cada uma das 10 imagens da raiz, adicionamos 3 carros + 1 raiz
+    while (j < imagensRaiz.length) {
+        var qtdCarros = Math.min(3, imagensCarros.length - i);
+        for (var k = 0; k < qtdCarros; k++) {
+            imagens.push({urlBase: baseUrlCarros + imagensCarros[i], name: imagensCarros[i]});
             i++;
-            k++;
         }
 
-        imagens.push(repo + listaRaiz[j]);
+        imagens.push({urlBase: baseUrlRaiz + imagensRaiz[j], name: imagensRaiz[j]});
         j++;
     }
 
-    while (i < listaCarros.length) {
-        imagens.push(repo + "carros/screenshots/" + listaCarros[i]);
+    // Se sobrar alguma imagem de carro (não deve sobrar com 30 exatos)
+    while (i < imagensCarros.length) {
+        imagens.push({urlBase: baseUrlCarros + imagensCarros[i], name: imagensCarros[i]});
         i++;
     }
 
     if (imagens.length > 0) {
-        log("Lista pronta: " + imagens.length + " imagens");
-        mostrar();
+        log('Lista mesclada carregada: ' + imagens.length + ' imagens (3 carros : 1 raiz)');
+        mostrarImagem();
     } else {
-        log("Lista vazia");
+        log('Erro: Lista vazia');
     }
 }
 
+function checkLoaded() {
+    loaded++;
+    if (loaded === 2) {
+        buildImagens();
+    }
+}
 
-// ===================== CARREGAR MANIFEST =====================
-function carregarLista(url, destino, callback) {
-
+function loadManifest(url, arrayToFill, isRaiz) {
+    log('Carregando lista ' + (isRaiz ? 'raiz' : 'carros') + '...');
     var xhr = new XMLHttpRequest();
-    xhr.open("GET", url, true);
-
+    xhr.open('GET', url, true);
     xhr.onreadystatechange = function() {
         if (xhr.readyState === 4) {
-
             if (xhr.status === 200) {
-
-                var linhas = xhr.responseText.split("\n");
-
+                var texto = xhr.responseText || '';
+                var linhas = texto.split('\n');
                 for (var i = 0; i < linhas.length; i++) {
-                    var l = linhas[i].replace(/\r/g,"").trim();
-                    if (l.indexOf(".png") > -1 || l.indexOf(".PNG") > -1) {
-                        destino.push(l);
+                    var linha = linhas[i].trim();
+                    if (linha && (linha.indexOf('.png') > -1 || linha.indexOf('.PNG') > -1)) {
+                        arrayToFill.push(linha);
                     }
                 }
-
-                callback();
-
+                log('Lista ' + (isRaiz ? 'raiz' : 'carros') + ' carregada: ' + arrayToFill.length + ' imagens');
+                checkLoaded();
             } else {
-                log("Erro manifest. Tentando novamente...");
-                setTimeout(function(){
-                    carregarLista(url, destino, callback);
-                }, 15000);
+                log('Erro ao baixar lista ' + (isRaiz ? 'raiz' : 'carros') + '. Status: ' + xhr.status);
+                setTimeout(function() { loadManifest(url, arrayToFill, isRaiz); }, 10000);
             }
         }
     };
-
     xhr.send();
 }
 
-
-// ===================== START =====================
-function check() {
-    carregadas++;
-    if (carregadas == 2) {
-        montarLista();
-    }
-}
-
-carregarLista(repo + "imagensPNG.txt", listaRaiz, check);
-carregarLista(repo + "carros/imagens_carros.txt", listaCarros, check);
-
+loadManifest(manifestRaiz, imagensRaiz, true);
+loadManifest(manifestCarros, imagensCarros, false);
 </script>
-
 </body>
 </html>
