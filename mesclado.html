@@ -117,7 +117,8 @@ var loadTimeout = null;
 var autoTimeout = null;
 
 var debug = document.getElementById('debug');
-var imgElement = document.getElementById('mainImage');
+var imgContainer = document.body; // usaremos para appendar novas imgs
+var currentImg = document.getElementById('mainImage');
 var progressMask = document.getElementById('progressMask');
 
 var baseUrlRaiz = repoUrl;
@@ -143,13 +144,6 @@ function resetProgress() {
     progressMask.style.animation = 'shrink 300s linear forwards';
 }
 
-function limparImagemAnterior() {
-    if (imgElement.src) {
-        imgElement.src = '';           // tenta liberar imediatamente
-        imgElement.removeAttribute('src');
-    }
-}
-
 function onImageLoad() {
     if (loadTimeout) clearTimeout(loadTimeout);
     resetProgress();
@@ -167,16 +161,34 @@ function onImageError() {
 function mostrarImagem() {
     if (imagens.length === 0) return;
     
-    limparImagemAnterior();  // ← principal mudança para liberar memória
-    
     var obj = imagens[idx];
-    imgElement.src = obj.urlBase;  // sem ?t= para permitir cache
-
-    if (loadTimeout) clearTimeout(loadTimeout);
-    loadTimeout = setTimeout(function() {
-        log('TIMEOUT: ' + imagens[idx].name);
-        proxima();
-    }, 30000);
+    
+    // Cria uma NOVA imagem em vez de reutilizar a mesma
+    var newImg = document.createElement('img');
+    newImg.id = 'mainImage'; // mantém o id para CSS
+    newImg.alt = 'Dashboard';
+    newImg.style.cssText = 'width:100% !important; height:100% !important; display:block; position:absolute; top:0; left:0;';
+    newImg.onload = onImageLoad;
+    newImg.onerror = onImageError;
+    
+    // Pequeno delay para dar tempo ao navegador respirar (ajuda em iOS 9)
+    setTimeout(function() {
+        // Remove a imagem anterior (se existir)
+        if (currentImg && currentImg.parentNode) {
+            currentImg.parentNode.removeChild(currentImg);
+        }
+        imgContainer.appendChild(newImg);
+        currentImg = newImg;
+        
+        // Carrega com timestamp para forçar fresh load (testar sem também)
+        newImg.src = obj.urlBase + '?t=' + new Date().getTime();
+        
+        if (loadTimeout) clearTimeout(loadTimeout);
+        loadTimeout = setTimeout(function() {
+            log('TIMEOUT: ' + imagens[idx].name);
+            proxima();
+        }, 30000);
+    }, 150); // 150ms de respiro - ajuste para 0 se quiser testar sem delay
 }
 
 function proxima() {
@@ -235,7 +247,7 @@ function loadManifest(url, arrayToFill, isRaiz) {
             if (xhr.status === 200) {
                 var texto = xhr.responseText || '';
                 var linhas = texto.split('\n');
-                arrayToFill.length = 0; // limpa array anterior
+                arrayToFill.length = 0;
                 for (var i = 0; i < linhas.length; i++) {
                     var linha = linhas[i].trim();
                     if (linha && (linha.indexOf('.png') > -1 || linha.indexOf('.PNG') > -1)) {
