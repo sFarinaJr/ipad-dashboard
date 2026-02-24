@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>Dashboard Universal</title>
+<title>Dashboard Universal - Mesclado</title>
 <style>
 * { margin:0; padding:0; border:0; }
 html, body { height:100%; width:100%; background:#000; overflow:hidden; font-family:sans-serif; }
@@ -28,7 +28,7 @@ html, body { height:100%; width:100%; background:#000; overflow:hidden; font-fam
     z-index:999; 
     background:#0b5ed7; 
     color:#fff; 
-    padding: 6px 10px 6px 10ch;
+    padding: 6px 10px 6px 10ch; 
     font-size:13px; 
     font-family:monospace; 
     white-space:nowrap; 
@@ -127,7 +127,6 @@ var manifestCarros = repoUrl + 'carros/imagens_carros.txt';
 
 var imagensRaiz = [];
 var imagensCarros = [];
-var loaded = 0;
 
 function log(msg) {
     var total = imagens.length;
@@ -160,7 +159,6 @@ function onImageError() {
 function mostrarImagem() {
     if (imagens.length === 0) return;
     var obj = imagens[idx];
-    
     imgElement.src = obj.urlBase + '?t=' + new Date().getTime();
 
     if (loadTimeout) clearTimeout(loadTimeout);
@@ -181,26 +179,46 @@ function skip() {
     proxima();
 }
 
+function parseManifest(texto) {
+    var array = [];
+    var linhas = texto.split('\n');
+    for (var i = 0; i < linhas.length; i++) {
+        var linha = linhas[i].trim();
+        if (linha && (linha.indexOf('.png') > -1 || linha.indexOf('.PNG') > -1)) {
+            array.push(linha);
+        }
+    }
+    return array;
+}
+
 function buildImagens() {
     var i = 0;
     var j = 0;
     imagens = [];
 
-    // Para cada uma das 10 imagens da raiz, adicionamos 3 carros + 1 raiz
+    // Padrão 3 carros + 1 raiz (repetido)
     while (j < imagensRaiz.length) {
         var qtdCarros = Math.min(3, imagensCarros.length - i);
         for (var k = 0; k < qtdCarros; k++) {
-            imagens.push({urlBase: baseUrlCarros + imagensCarros[i], name: imagensCarros[i]});
+            imagens.push({
+                urlBase: baseUrlCarros + imagensCarros[i],
+                name: imagensCarros[i]
+            });
             i++;
         }
-
-        imagens.push({urlBase: baseUrlRaiz + imagensRaiz[j], name: imagensRaiz[j]});
+        imagens.push({
+            urlBase: baseUrlRaiz + imagensRaiz[j],
+            name: imagensRaiz[j]
+        });
         j++;
     }
 
-    // Se sobrar alguma imagem de carro (não deve sobrar com 30 exatos)
+    // Sobras de carros (se houver)
     while (i < imagensCarros.length) {
-        imagens.push({urlBase: baseUrlCarros + imagensCarros[i], name: imagensCarros[i]});
+        imagens.push({
+            urlBase: baseUrlCarros + imagensCarros[i],
+            name: imagensCarros[i]
+        });
         i++;
     }
 
@@ -212,41 +230,46 @@ function buildImagens() {
     }
 }
 
-function checkLoaded() {
-    loaded++;
-    if (loaded === 2) {
-        buildImagens();
-    }
-}
-
-function loadManifest(url, arrayToFill, isRaiz) {
-    log('Carregando lista ' + (isRaiz ? 'raiz' : 'carros') + '...');
+function loadManifestRaiz() {
+    log('Carregando lista raiz...');
     var xhr = new XMLHttpRequest();
-    xhr.open('GET', url, true);
+    xhr.open('GET', manifestRaiz, true);
     xhr.onreadystatechange = function() {
         if (xhr.readyState === 4) {
             if (xhr.status === 200) {
-                var texto = xhr.responseText || '';
-                var linhas = texto.split('\n');
-                for (var i = 0; i < linhas.length; i++) {
-                    var linha = linhas[i].trim();
-                    if (linha && (linha.indexOf('.png') > -1 || linha.indexOf('.PNG') > -1)) {
-                        arrayToFill.push(linha);
-                    }
-                }
-                log('Lista ' + (isRaiz ? 'raiz' : 'carros') + ' carregada: ' + arrayToFill.length + ' imagens');
-                checkLoaded();
+                imagensRaiz = parseManifest(xhr.responseText || '');
+                log('Lista raiz carregada: ' + imagensRaiz.length + ' imagens');
+                loadManifestCarros();
             } else {
-                log('Erro ao baixar lista ' + (isRaiz ? 'raiz' : 'carros') + '. Status: ' + xhr.status);
-                setTimeout(function() { loadManifest(url, arrayToFill, isRaiz); }, 10000);
+                log('Erro ao baixar lista raiz. Status: ' + xhr.status);
+                setTimeout(loadManifestRaiz, 10000);
             }
         }
     };
     xhr.send();
 }
 
-loadManifest(manifestRaiz, imagensRaiz, true);
-loadManifest(manifestCarros, imagensCarros, false);
+function loadManifestCarros() {
+    log('Carregando lista carros...');
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', manifestCarros, true);
+    xhr.onreadystatechange = function() {
+        if (xhr.readyState === 4) {
+            if (xhr.status === 200) {
+                imagensCarros = parseManifest(xhr.responseText || '');
+                log('Lista carros carregada: ' + imagensCarros.length + ' imagens');
+                buildImagens();
+            } else {
+                log('Erro ao baixar lista carros. Status: ' + xhr.status);
+                setTimeout(loadManifestCarros, 10000);
+            }
+        }
+    };
+    xhr.send();
+}
+
+// Inicia o processo
+loadManifestRaiz();
 </script>
 </body>
 </html>
