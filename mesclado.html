@@ -62,19 +62,12 @@ function syncServerTime(callback) {
     if (xhr.readyState === 4) {
       var dateStr = xhr.getResponseHeader('Date');
       if (dateStr) {
-        var serverMs = new Date(dateStr).getTime();
-        timeOffset = serverMs - Date.now();
-        debug.innerHTML += '<br>Horário sincronizado (offset: ' + timeOffset + 'ms)';
-      } else {
-        debug.innerHTML += '<br>Sem header Date → usando relógio local';
+        timeOffset = new Date(dateStr).getTime() - Date.now();
       }
       if (callback) callback();
     }
   };
-  xhr.onerror = function() {
-    debug.innerHTML += '<br>Erro na sincronização → usando relógio local';
-    if (callback) callback();
-  };
+  xhr.onerror = function() { if (callback) callback(); };
   xhr.send();
 }
 
@@ -104,11 +97,11 @@ function getCurrentSlotStartMs() {
 
 function getMsToNextSlot() {
     var nowReal = getRealMs();
-    var slotStart = getCurrentSlotStartMs();
-    var nextSlot = slotStart + 300000;
+    var currentSlot = getCurrentSlotStartMs();
+    var nextSlot = currentSlot + 300000;
     var delay = nextSlot - nowReal;
     if (delay <= 0) delay += 300000;
-    return Math.max(delay, 1000); // mínimo 1s para evitar loop rápido
+    return Math.max(delay, 2000); // mínimo 2 segundos para ver a mensagem
 }
 
 function resetProgress(durationSec) {
@@ -138,8 +131,7 @@ function onImageError() {
 
 function mostrarImagem() {
     if (imagens.length === 0) return;
-    var obj = imagens[idx];
-    imgElement.src = obj.urlBase + '?t=' + new Date().getTime();
+    imgElement.src = imagens[idx].urlBase + '?t=' + Date.now();
     if (loadTimeout) clearTimeout(loadTimeout);
     loadTimeout = setTimeout(function() {
         log('TIMEOUT: ' + imagens[idx].name);
@@ -161,8 +153,7 @@ function skip() {
 
 function scheduleNextAdvance() {
     if (autoTimeout) clearTimeout(autoTimeout);
-    var delay = getMsToNextSlot();
-    autoTimeout = setTimeout(advanceToNext, delay);
+    autoTimeout = setTimeout(advanceToNext, getMsToNextSlot());
 }
 
 function advanceToNext() {
@@ -207,20 +198,22 @@ function buildImagens() {
     }
 
     log('Lista mesclada carregada: ' + imagens.length + ' imagens');
-    
+
     try {
         var currentSlotStart = getCurrentSlotStartMs();
-        var savedIdx = localStorage.getItem('lastIdx');
         var savedSlot = localStorage.getItem('lastSlotStart');
+        var isFirstTime = localStorage.getItem('lastIdx') === null;
 
-        if (savedSlot && parseInt(savedSlot) === currentSlotStart && savedIdx !== null) {
-            idx = parseInt(savedIdx) % imagens.length;
-            mostrarImagem(); // continua no slot atual
+        if (!isFirstTime && savedSlot && parseInt(savedSlot) === currentSlotStart) {
+            // Continua dentro do mesmo slot de 5 minutos
+            idx = parseInt(localStorage.getItem('lastIdx')) % imagens.length;
+            mostrarImagem();
         } else {
-            // Primeira vez ou slot novo → aguarda o próximo slot começar
+            // Primeira vez OU slot novo → aguarda alinhamento perfeito
             var waitMs = getMsToNextSlot();
             var waitSec = Math.ceil(waitMs / 1000);
             debug.innerHTML = 'Aguardando alinhamento (' + waitSec + 's)...';
+            
             setTimeout(function() {
                 idx = Math.floor(getRealMs() / 300000) % imagens.length;
                 savePosition();
@@ -228,6 +221,7 @@ function buildImagens() {
             }, waitMs);
         }
     } catch(e) {
+        // fallback seguro para iPad antigo
         idx = 0;
         mostrarImagem();
     }
@@ -244,7 +238,7 @@ function loadManifestRaiz() {
                 log('Lista raiz carregada: ' + imagensRaiz.length + ' imagens');
                 loadManifestCarros();
             } else {
-                log('Erro ao baixar lista raiz. Status: ' + xhr.status);
+                log('Erro lista raiz. Status: ' + xhr.status);
                 setTimeout(loadManifestRaiz, 10000);
             }
         }
@@ -263,7 +257,7 @@ function loadManifestCarros() {
                 log('Lista carros carregada: ' + imagensCarros.length + ' imagens');
                 buildImagens();
             } else {
-                log('Erro ao baixar lista carros. Status: ' + xhr.status);
+                log('Erro lista carros. Status: ' + xhr.status);
                 setTimeout(loadManifestCarros, 10000);
             }
         }
