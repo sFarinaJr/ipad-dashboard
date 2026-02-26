@@ -64,6 +64,8 @@ html, body { height:100%; width:100%; background:#000; overflow:hidden; font-fam
     left:0; 
     background:#000; 
     width:100%; 
+    -webkit-animation: shrink 300s linear forwards; 
+    animation: shrink 300s linear forwards; 
     z-index:1; 
 }
 
@@ -87,6 +89,9 @@ html, body { height:100%; width:100%; background:#000; overflow:hidden; font-fam
     text-align: center;
     line-height: 28px;
 }
+
+@-webkit-keyframes shrink { from {width:100%} to {width:0%} }
+@keyframes shrink { from {width:100%} to {width:0%} }
 </style>
 </head>
 <body onclick="skip()">
@@ -129,8 +134,19 @@ function log(msg) {
 }
 
 function savePosition() {
-    localStorage.setItem('lastIdx', idx);
-    localStorage.setItem('lastSlotStart', getCurrentSlotStartMs());
+    try {
+        localStorage.setItem('lastIdx', idx);
+        localStorage.setItem('lastSlotStart', getCurrentSlotStartMs());
+    } catch(e) {}
+}
+
+function getCurrentSlotStartMs() {
+    var now = new Date();
+    var minutes = now.getMinutes();
+    var mod = minutes % 5;
+    minutes -= mod;
+    var slotDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), minutes, 0, 0);
+    return slotDate.getTime();
 }
 
 function getCurrentSlotIndex() {
@@ -138,18 +154,10 @@ function getCurrentSlotIndex() {
     return total5MinSlots % imagens.length;
 }
 
-function getCurrentSlotStartMs() {
-    var now = new Date();
-    var minutes = now.getMinutes();
-    var mod = minutes % 5;
-    minutes = minutes - mod;
-    var slotDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), minutes, 0, 0);
-    return slotDate.getTime();
-}
-
 function resetProgress(durationSec) {
     progressMask.style.webkitAnimation = 'none';
-    progressMask.offsetHeight;
+    progressMask.style.animation = 'none';
+    progressMask.offsetHeight; // força reflow
     progressMask.style.webkitAnimation = 'shrink ' + durationSec + 's linear forwards';
     progressMask.style.animation = 'shrink ' + durationSec + 's linear forwards';
 }
@@ -159,7 +167,7 @@ function onImageLoad() {
     
     var slotEndMs = getCurrentSlotStartMs() + 300000;
     var remainingSec = Math.ceil((slotEndMs - Date.now()) / 1000);
-    if (remainingSec < 5) remainingSec = 300;
+    if (remainingSec < 10) remainingSec = 300; // segurança
     
     resetProgress(remainingSec);
     log(imagens[idx].name);
@@ -192,6 +200,7 @@ function proxima() {
 }
 
 function skip() {
+    if (autoTimeout) clearTimeout(autoTimeout);
     proxima();
 }
 
@@ -201,7 +210,6 @@ function scheduleNextAdvance() {
     var slotStartMs = getCurrentSlotStartMs();
     var nextBoundaryMs = slotStartMs + 300000;
     var delay = nextBoundaryMs - Date.now();
-    
     if (delay < 500) delay = 300000;
     
     autoTimeout = setTimeout(advanceToNext, delay);
@@ -259,20 +267,26 @@ function buildImagens() {
     if (imagens.length > 0) {
         log('Lista mesclada carregada: ' + imagens.length + ' imagens (3 carros : 1 raiz)');
         
-        // === INÍCIO DA NOVA LÓGICA DE 5 MINUTOS ALINHADOS AO RELÓGIO ===
-        var currentSlotStart = getCurrentSlotStartMs();
-        var savedIdx = localStorage.getItem('lastIdx');
-        var savedSlot = localStorage.getItem('lastSlotStart');
-        
-        if (savedSlot && parseInt(savedSlot) === currentSlotStart && savedIdx !== null) {
-            idx = parseInt(savedIdx);
-        } else {
-            idx = getCurrentSlotIndex();
+        try {
+            var currentSlotStart = getCurrentSlotStartMs();
+            var savedIdx = localStorage.getItem('lastIdx');
+            var savedSlot = localStorage.getItem('lastSlotStart');
+            
+            if (savedSlot && parseInt(savedSlot) === currentSlotStart && savedIdx !== null) {
+                idx = parseInt(savedIdx);
+            } else {
+                idx = getCurrentSlotIndex();
+            }
+            
+            // segurança extra para iPad antigo
+            idx = (idx % imagens.length + imagens.length) % imagens.length;
+            
+            savePosition();
+            mostrarImagem();
+        } catch(e) {
+            idx = 0;
+            mostrarImagem();
         }
-        
-        savePosition();
-        mostrarImagem();
-        // === FIM DA NOVA LÓGICA ===
     } else {
         log('Erro: Lista vazia');
     }
