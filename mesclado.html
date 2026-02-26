@@ -35,14 +35,14 @@ html, body { height:100%; width:100%; background:#000; overflow:hidden; font-fam
 
 <script>
 // =============================================
-// Variáveis globais
+// Variáveis e hora da internet (única fonte de tempo)
 // =============================================
 var repoUrl = 'https://raw.githubusercontent.com/sfarinajr/ipad-dashboard/main/';
 var imagens = [];
 var idx = 0;
 var loadTimeout = null;
 var autoTimeout = null;
-var serverOffset = 0;   // diferença: serverTime - localTime
+var serverOffset = 0;
 
 var debug = document.getElementById('debug');
 var imgElement = document.getElementById('mainImage');
@@ -56,73 +56,67 @@ var baseUrlCarros = repoUrl + 'carros/';
 var imagensRaiz = [];
 var imagensCarros = [];
 
-// =============================================
-// Hora REAL (sempre da internet)
-// =============================================
+// Hora REAL da internet
 function getServerMs() {
   return Date.now() + serverOffset;
 }
 
-function syncServerTimeAndStart() {
+// =============================================
+// Sincroniza hora da internet
+// =============================================
+function syncServerTime(callback) {
   var xhr = new XMLHttpRequest();
   xhr.open('HEAD', manifestRaiz + '?v=' + Date.now(), true);
   xhr.onreadystatechange = function() {
     if (xhr.readyState === 4) {
       var dateHeader = xhr.getResponseHeader('Date');
       if (dateHeader) {
-        var serverTime = new Date(dateHeader).getTime();
-        serverOffset = serverTime - Date.now();
-        debug.innerHTML = 'Hora internet sincronizada';
+        serverOffset = new Date(dateHeader).getTime() - Date.now();
+        debug.innerHTML = 'Hora internet OK';
       } else {
-        debug.innerHTML = 'Sem header Date → usando relógio local (pode desalinha)';
+        debug.innerHTML = 'Sem header → relógio local';
       }
-      loadManifestRaiz();
+      callback();
     }
   };
-  xhr.onerror = function() {
-    debug.innerHTML = 'Erro sincronização → usando relógio local';
-    loadManifestRaiz();
-  };
+  xhr.onerror = function() { callback(); };
   xhr.send();
 }
 
 // =============================================
-// Funções de slot (sempre usando getServerMs())
+// Tempo do slot (sempre com hora da internet)
 // =============================================
 function getCurrentSlotStartMs() {
   var ms = getServerMs();
   var d = new Date(ms);
   var min = d.getMinutes();
   min = min - (min % 5);
-  var slot = new Date(d.getFullYear(), d.getMonth(), d.getDate(), d.getHours(), min, 0, 0);
-  return slot.getTime();
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate(), d.getHours(), min, 0, 0).getTime();
 }
 
 function msToNextSlot() {
   var now = getServerMs();
-  var currentSlot = getCurrentSlotStartMs();
-  var next = currentSlot + 300000;
+  var current = getCurrentSlotStartMs();
+  var next = current + 300000;
   var diff = next - now;
   if (diff <= 0) diff += 300000;
   return diff;
 }
 
 // =============================================
-// Debug + progresso
+// BARRA DE PROGRESSO – CORRIGIDA E FIDELIDADE TOTAL
 // =============================================
-function log(msg) {
-  var total = imagens.length;
-  var pos = total > 0 ? ' (' + (idx+1) + '/' + total + ')' : '';
-  debug.innerHTML = msg + pos;
-}
+function resetProgress() {
+  var remainingSec = Math.ceil((getCurrentSlotStartMs() + 300000 - getServerMs()) / 1000);
+  if (remainingSec < 10) remainingSec = 300;
 
-function resetProgress(seconds) {
   progressMask.style.webkitAnimation = 'none';
   progressMask.style.animation = 'none';
   progressMask.style.width = '100%';
-  progressMask.offsetHeight;
-  progressMask.style.webkitAnimation = 'shrink ' + seconds + 's linear forwards';
-  progressMask.style.animation = 'shrink ' + seconds + 's linear forwards';
+  progressMask.offsetHeight;               // força reflow no Safari antigo
+
+  progressMask.style.webkitAnimation = 'shrink ' + remainingSec + 's linear forwards';
+  progressMask.style.animation = 'shrink ' + remainingSec + 's linear forwards';
 }
 
 // =============================================
@@ -130,10 +124,7 @@ function resetProgress(seconds) {
 // =============================================
 function onImageLoad() {
   if (loadTimeout) clearTimeout(loadTimeout);
-  var slotEnd = getCurrentSlotStartMs() + 300000;
-  var remainSec = Math.ceil((slotEnd - getServerMs()) / 1000);
-  if (remainSec < 10) remainSec = 300;
-  resetProgress(remainSec);
+  resetProgress();               // garante barra correta no onload
   log(imagens[idx].name);
   scheduleNextAdvance();
 }
@@ -146,11 +137,18 @@ function onImageError() {
 
 function mostrarImagem() {
   if (imagens.length === 0) return;
+  resetProgress();               // garante barra ANTES da imagem aparecer
   imgElement.src = imagens[idx].urlBase + '?v=' + Date.now();
   loadTimeout = setTimeout(function(){
     log('TIMEOUT: ' + imagens[idx].name);
     nextImage();
   }, 30000);
+}
+
+function log(msg) {
+  var total = imagens.length;
+  var pos = total > 0 ? ' (' + (idx+1) + '/' + total + ')' : '';
+  debug.innerHTML = msg + pos;
 }
 
 function nextImage() {
@@ -170,7 +168,7 @@ function scheduleNextAdvance() {
 }
 
 // =============================================
-// Construção da lista + espera inicial
+// Build + espera inicial
 // =============================================
 function buildImagens() {
   var i = 0, j = 0;
@@ -191,38 +189,30 @@ function buildImagens() {
   }
 
   if (imagens.length === 0) {
-    log('Nenhuma imagem encontrada');
+    log('Nenhuma imagem');
     return;
   }
 
   log('Carregadas ' + imagens.length + ' imagens');
 
-  var delayMs = msToNextSlot();
-
-  if (delayMs > 6000) {
-    // Espera visível até o próximo slot
-    var sec = Math.ceil(delayMs / 1000);
-    debug.innerHTML = 'Aguardando próximo :05/:10/... (' + sec + 's)';
-    setTimeout(startSlideshow, delayMs);
+  var delay = msToNextSlot();
+  if (delay > 6000) {
+    var sec = Math.ceil(delay / 1000);
+    debug.innerHTML = 'Aguardando próximo múltiplo de 5 min (' + sec + 's)';
+    setTimeout(startSlideshow, delay);
   } else {
-    // Já estamos no slot → começa agora
     startSlideshow();
   }
 }
 
 function startSlideshow() {
-  // Tenta recuperar posição salva (só se for mesmo slot)
-  var savedIdx = null;
-  try {
-    savedIdx = localStorage.getItem('lastIdx');
-  } catch(e){}
-
-  if (savedIdx !== null) {
-    idx = parseInt(savedIdx, 10) % imagens.length;
+  var saved = null;
+  try { saved = localStorage.getItem('lastIdx'); } catch(e){}
+  if (saved !== null) {
+    idx = parseInt(saved, 10) % imagens.length;
   } else {
     idx = Math.floor(getServerMs() / 300000) % imagens.length;
   }
-
   try { localStorage.setItem('lastIdx', idx); } catch(e){}
   mostrarImagem();
 }
@@ -232,9 +222,7 @@ function parseManifest(text) {
   var lines = text.split('\n');
   for (var i = 0; i < lines.length; i++) {
     var ln = lines[i].trim();
-    if (ln && (ln.indexOf('.png') !== -1 || ln.indexOf('.PNG') !== -1)) {
-      arr.push(ln);
-    }
+    if (ln && (ln.indexOf('.png') !== -1 || ln.indexOf('.PNG') !== -1)) arr.push(ln);
   }
   return arr;
 }
@@ -244,15 +232,13 @@ function loadManifestRaiz() {
   var xhr = new XMLHttpRequest();
   xhr.open('GET', manifestRaiz + '?v=' + Date.now(), true);
   xhr.onreadystatechange = function() {
-    if (xhr.readyState === 4) {
-      if (xhr.status === 200) {
-        imagensRaiz = parseManifest(xhr.responseText);
-        log('Raiz: ' + imagensRaiz.length);
-        loadManifestCarros();
-      } else {
-        log('Erro raiz: ' + xhr.status);
-        setTimeout(loadManifestRaiz, 15000);
-      }
+    if (xhr.readyState === 4 && xhr.status === 200) {
+      imagensRaiz = parseManifest(xhr.responseText);
+      log('Raiz: ' + imagensRaiz.length);
+      loadManifestCarros();
+    } else if (xhr.readyState === 4) {
+      log('Erro raiz: ' + xhr.status);
+      setTimeout(loadManifestRaiz, 15000);
     }
   };
   xhr.send();
@@ -263,24 +249,24 @@ function loadManifestCarros() {
   var xhr = new XMLHttpRequest();
   xhr.open('GET', manifestCarros + '?v=' + Date.now(), true);
   xhr.onreadystatechange = function() {
-    if (xhr.readyState === 4) {
-      if (xhr.status === 200) {
-        imagensCarros = parseManifest(xhr.responseText);
-        log('Carros: ' + imagensCarros.length);
-        buildImagens();
-      } else {
-        log('Erro carros: ' + xhr.status);
-        setTimeout(loadManifestCarros, 15000);
-      }
+    if (xhr.readyState === 4 && xhr.status === 200) {
+      imagensCarros = parseManifest(xhr.responseText);
+      log('Carros: ' + imagensCarros.length);
+      buildImagens();
+    } else if (xhr.readyState === 4) {
+      log('Erro carros: ' + xhr.status);
+      setTimeout(loadManifestCarros, 15000);
     }
   };
   xhr.send();
 }
 
 // =============================================
-// Início real
+// Início
 // =============================================
-syncServerTimeAndStart();
+syncServerTime(function() {
+  loadManifestRaiz();
+});
 </script>
 </body>
 </html>
