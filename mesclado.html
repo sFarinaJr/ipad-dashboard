@@ -22,7 +22,7 @@ html, body { height:100%; width:100%; background:#000; overflow:hidden; font-fam
 </head>
 <body onclick="skip()">
 
-<div id="debug">Iniciando...</div>
+<div id="debug">Sincronizando horário da internet...</div>
 <img id="mainImage" src="" alt="Dashboard" onload="onImageLoad()" onerror="onImageError()">
 
 <div class="progress-container">
@@ -57,16 +57,23 @@ function getRealMs() { return Date.now() + timeOffset; }
 
 function syncServerTime(callback) {
   var xhr = new XMLHttpRequest();
-  xhr.open('HEAD', manifestRaiz, true);
+  xhr.open('HEAD', manifestRaiz + '?_=' + Date.now(), true);
   xhr.onreadystatechange = function() {
     if (xhr.readyState === 4) {
       var dateStr = xhr.getResponseHeader('Date');
       if (dateStr) {
         var serverMs = new Date(dateStr).getTime();
         timeOffset = serverMs - Date.now();
+        debug.innerHTML += '<br>Horário sincronizado (offset: ' + timeOffset + 'ms)';
+      } else {
+        debug.innerHTML += '<br>Sem header Date → usando relógio local';
       }
       if (callback) callback();
     }
+  };
+  xhr.onerror = function() {
+    debug.innerHTML += '<br>Erro na sincronização → usando relógio local';
+    if (callback) callback();
   };
   xhr.send();
 }
@@ -95,9 +102,13 @@ function getCurrentSlotStartMs() {
     return slotDate.getTime();
 }
 
-function getCurrentSlotIndex() {
-    var total5MinSlots = Math.floor(getRealMs() / 300000);
-    return total5MinSlots % imagens.length;
+function getMsToNextSlot() {
+    var nowReal = getRealMs();
+    var slotStart = getCurrentSlotStartMs();
+    var nextSlot = slotStart + 300000;
+    var delay = nextSlot - nowReal;
+    if (delay <= 0) delay += 300000;
+    return Math.max(delay, 1000); // mínimo 1s para evitar loop rápido
 }
 
 function resetProgress(durationSec) {
@@ -150,10 +161,7 @@ function skip() {
 
 function scheduleNextAdvance() {
     if (autoTimeout) clearTimeout(autoTimeout);
-    var slotStartMs = getCurrentSlotStartMs();
-    var nextBoundaryMs = slotStartMs + 300000;
-    var delay = nextBoundaryMs - getRealMs();
-    if (delay < 500) delay = 300000;
+    var delay = getMsToNextSlot();
     autoTimeout = setTimeout(advanceToNext, delay);
 }
 
@@ -193,33 +201,42 @@ function buildImagens() {
         i++;
     }
 
-    if (imagens.length > 0) {
-        log('Lista mesclada carregada: ' + imagens.length + ' imagens');
-        try {
-            var currentSlotStart = getCurrentSlotStartMs();
-            var savedIdx = localStorage.getItem('lastIdx');
-            var savedSlot = localStorage.getItem('lastSlotStart');
-            if (savedSlot && parseInt(savedSlot) === currentSlotStart && savedIdx !== null) {
-                idx = parseInt(savedIdx);
-            } else {
-                idx = getCurrentSlotIndex();
-            }
-            idx = (idx % imagens.length + imagens.length) % imagens.length;
-            savePosition();
-            mostrarImagem();
-        } catch(e) {
-            idx = 0;
-            mostrarImagem();
-        }
-    } else {
+    if (imagens.length === 0) {
         log('Erro: Lista vazia');
+        return;
+    }
+
+    log('Lista mesclada carregada: ' + imagens.length + ' imagens');
+    
+    try {
+        var currentSlotStart = getCurrentSlotStartMs();
+        var savedIdx = localStorage.getItem('lastIdx');
+        var savedSlot = localStorage.getItem('lastSlotStart');
+
+        if (savedSlot && parseInt(savedSlot) === currentSlotStart && savedIdx !== null) {
+            idx = parseInt(savedIdx) % imagens.length;
+            mostrarImagem(); // continua no slot atual
+        } else {
+            // Primeira vez ou slot novo → aguarda o próximo slot começar
+            var waitMs = getMsToNextSlot();
+            var waitSec = Math.ceil(waitMs / 1000);
+            debug.innerHTML = 'Aguardando alinhamento (' + waitSec + 's)...';
+            setTimeout(function() {
+                idx = Math.floor(getRealMs() / 300000) % imagens.length;
+                savePosition();
+                mostrarImagem();
+            }, waitMs);
+        }
+    } catch(e) {
+        idx = 0;
+        mostrarImagem();
     }
 }
 
 function loadManifestRaiz() {
     log('Carregando lista raiz...');
     var xhr = new XMLHttpRequest();
-    xhr.open('GET', manifestRaiz, true);
+    xhr.open('GET', manifestRaiz + '?_=' + Date.now(), true);
     xhr.onreadystatechange = function() {
         if (xhr.readyState === 4) {
             if (xhr.status === 200) {
@@ -238,7 +255,7 @@ function loadManifestRaiz() {
 function loadManifestCarros() {
     log('Carregando lista carros...');
     var xhr = new XMLHttpRequest();
-    xhr.open('GET', manifestCarros, true);
+    xhr.open('GET', manifestCarros + '?_=' + Date.now(), true);
     xhr.onreadystatechange = function() {
         if (xhr.readyState === 4) {
             if (xhr.status === 200) {
