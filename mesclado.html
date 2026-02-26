@@ -9,87 +9,13 @@
 <style>
 * { margin:0; padding:0; border:0; }
 html, body { height:100%; width:100%; background:#000; overflow:hidden; font-family:sans-serif; }
-
-/* Imagem ocupa tela toda */
-#mainImage { 
-    width:100% !important; 
-    height:100% !important; 
-    display:block; 
-    position: absolute;
-    top: 0;
-    left: 0;
-}
-
-#debug { 
-    position:fixed; 
-    top:0; 
-    left:0; 
-    right:0; 
-    z-index:999; 
-    background:#0b5ed7; 
-    color:#fff; 
-    padding: 6px 10px 6px 10ch; 
-    font-size:13px; 
-    font-family:monospace; 
-    white-space:nowrap; 
-    overflow:hidden; 
-    text-overflow:ellipsis; 
-    opacity: 0.7; 
-}
-
-/* Barra de progressão */
-.progress-container { 
-    position:fixed; 
-    bottom:0; 
-    left:0; 
-    right:0; 
-    height:28px; 
-    background:#222; 
-    z-index:100; 
-}
-
-.progress-bg { 
-    position:absolute; 
-    top:0; 
-    right:0; 
-    bottom:0; 
-    left:0; 
-    background: -webkit-linear-gradient(left, #4a90e2, #f39c12 60%, #e74c3c); 
-}
-
-.progress-mask { 
-    position:absolute; 
-    top:0; 
-    bottom:0; 
-    left:0; 
-    background:#000; 
-    width:100%; 
-    -webkit-animation: shrink 300s linear forwards; 
-    animation: shrink 300s linear forwards; 
-    z-index:1; 
-}
-
-.scale { 
-    position:absolute; 
-    top:0; 
-    left:0; 
-    width:100%; 
-    height:28px; 
-    z-index:101; 
-    color:white; 
-    font-size:14px; 
-    font-weight:bold; 
-    text-shadow:0 0 4px #000; 
-}
-
-.scale span { 
-    display: block;
-    float: left;
-    width: 20%;
-    text-align: center;
-    line-height: 28px;
-}
-
+#mainImage { width:100% !important; height:100% !important; display:block; position:absolute; top:0; left:0; }
+#debug { position:fixed; top:0; left:0; right:0; z-index:999; background:#0b5ed7; color:#fff; padding:6px 10px 6px 10ch; font-size:13px; font-family:monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; opacity:0.7; }
+.progress-container { position:fixed; bottom:0; left:0; right:0; height:28px; background:#222; z-index:100; }
+.progress-bg { position:absolute; top:0; right:0; bottom:0; left:0; background:-webkit-linear-gradient(left, #4a90e2, #f39c12 60%, #e74c3c); }
+.progress-mask { position:absolute; top:0; bottom:0; left:0; background:#000; width:100%; -webkit-animation:shrink 300s linear forwards; animation:shrink 300s linear forwards; z-index:1; }
+.scale { position:absolute; top:0; left:0; width:100%; height:28px; z-index:101; color:white; font-size:14px; font-weight:bold; text-shadow:0 0 4px #000; }
+.scale span { display:block; float:left; width:20%; text-align:center; line-height:28px; }
 @-webkit-keyframes shrink { from {width:100%} to {width:0%} }
 @keyframes shrink { from {width:100%} to {width:0%} }
 </style>
@@ -120,11 +46,30 @@ var progressMask = document.getElementById('progressMask');
 
 var baseUrlRaiz = repoUrl;
 var manifestRaiz = repoUrl + 'imagensPNG.txt';
-var baseUrlCarros = repoUrl + 'carros/';                    // ← CORRIGIDO (era o erro principal)
+var baseUrlCarros = repoUrl + 'carros/';
 var manifestCarros = repoUrl + 'carros/imagens_carros.txt';
 
 var imagensRaiz = [];
 var imagensCarros = [];
+var timeOffset = 0;
+
+function getRealMs() { return Date.now() + timeOffset; }
+
+function syncServerTime(callback) {
+  var xhr = new XMLHttpRequest();
+  xhr.open('HEAD', manifestRaiz, true);
+  xhr.onreadystatechange = function() {
+    if (xhr.readyState === 4) {
+      var dateStr = xhr.getResponseHeader('Date');
+      if (dateStr) {
+        var serverMs = new Date(dateStr).getTime();
+        timeOffset = serverMs - Date.now();
+      }
+      if (callback) callback();
+    }
+  };
+  xhr.send();
+}
 
 function log(msg) {
     var total = imagens.length;
@@ -141,7 +86,8 @@ function savePosition() {
 }
 
 function getCurrentSlotStartMs() {
-    var now = new Date();
+    var realMs = getRealMs();
+    var now = new Date(realMs);
     var minutes = now.getMinutes();
     var mod = minutes % 5;
     minutes -= mod;
@@ -150,26 +96,24 @@ function getCurrentSlotStartMs() {
 }
 
 function getCurrentSlotIndex() {
-    var total5MinSlots = Math.floor(Date.now() / 300000);
+    var total5MinSlots = Math.floor(getRealMs() / 300000);
     return total5MinSlots % imagens.length;
 }
 
 function resetProgress(durationSec) {
     progressMask.style.webkitAnimation = 'none';
     progressMask.style.animation = 'none';
-    progressMask.style.width = '100%';           // ← FORÇA VISUALIZAÇÃO
-    progressMask.offsetHeight;                   // reflow para iPad antigo
+    progressMask.style.width = '100%';
+    progressMask.offsetHeight;
     progressMask.style.webkitAnimation = 'shrink ' + durationSec + 's linear forwards';
     progressMask.style.animation = 'shrink ' + durationSec + 's linear forwards';
 }
 
 function onImageLoad() {
     if (loadTimeout) clearTimeout(loadTimeout);
-    
     var slotEndMs = getCurrentSlotStartMs() + 300000;
-    var remainingSec = Math.ceil((slotEndMs - Date.now()) / 1000);
+    var remainingSec = Math.ceil((slotEndMs - getRealMs()) / 1000);
     if (remainingSec < 10) remainingSec = 300;
-    
     resetProgress(remainingSec);
     log(imagens[idx].name);
     scheduleNextAdvance();
@@ -185,7 +129,6 @@ function mostrarImagem() {
     if (imagens.length === 0) return;
     var obj = imagens[idx];
     imgElement.src = obj.urlBase + '?t=' + new Date().getTime();
-
     if (loadTimeout) clearTimeout(loadTimeout);
     loadTimeout = setTimeout(function() {
         log('TIMEOUT: ' + imagens[idx].name);
@@ -207,12 +150,10 @@ function skip() {
 
 function scheduleNextAdvance() {
     if (autoTimeout) clearTimeout(autoTimeout);
-    
     var slotStartMs = getCurrentSlotStartMs();
     var nextBoundaryMs = slotStartMs + 300000;
-    var delay = nextBoundaryMs - Date.now();
+    var delay = nextBoundaryMs - getRealMs();
     if (delay < 500) delay = 300000;
-    
     autoTimeout = setTimeout(advanceToNext, delay);
 }
 
@@ -237,50 +178,33 @@ function parseManifest(texto) {
 }
 
 function buildImagens() {
-    var i = 0;
-    var j = 0;
-    imagens = [];
-
+    var i = 0; var j = 0; imagens = [];
     while (j < imagensRaiz.length) {
         var qtdCarros = Math.min(3, imagensCarros.length - i);
         for (var k = 0; k < qtdCarros; k++) {
-            imagens.push({
-                urlBase: baseUrlCarros + imagensCarros[i],
-                name: imagensCarros[i]
-            });
+            imagens.push({ urlBase: baseUrlCarros + imagensCarros[i], name: imagensCarros[i] });
             i++;
         }
-        imagens.push({
-            urlBase: baseUrlRaiz + imagensRaiz[j],
-            name: imagensRaiz[j]
-        });
+        imagens.push({ urlBase: baseUrlRaiz + imagensRaiz[j], name: imagensRaiz[j] });
         j++;
     }
-
     while (i < imagensCarros.length) {
-        imagens.push({
-            urlBase: baseUrlCarros + imagensCarros[i],
-            name: imagensCarros[i]
-        });
+        imagens.push({ urlBase: baseUrlCarros + imagensCarros[i], name: imagensCarros[i] });
         i++;
     }
 
     if (imagens.length > 0) {
         log('Lista mesclada carregada: ' + imagens.length + ' imagens');
-        
         try {
             var currentSlotStart = getCurrentSlotStartMs();
             var savedIdx = localStorage.getItem('lastIdx');
             var savedSlot = localStorage.getItem('lastSlotStart');
-            
             if (savedSlot && parseInt(savedSlot) === currentSlotStart && savedIdx !== null) {
                 idx = parseInt(savedIdx);
             } else {
                 idx = getCurrentSlotIndex();
             }
-            
             idx = (idx % imagens.length + imagens.length) % imagens.length;
-            
             savePosition();
             mostrarImagem();
         } catch(e) {
@@ -330,8 +254,10 @@ function loadManifestCarros() {
     xhr.send();
 }
 
-// Inicia o processo
-loadManifestRaiz();
+// Início
+syncServerTime(function() {
+    loadManifestRaiz();
+});
 </script>
 </body>
 </html>
