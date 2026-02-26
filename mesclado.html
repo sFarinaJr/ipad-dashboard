@@ -10,10 +10,10 @@
 * { margin:0; padding:0; border:0; }
 html, body { height:100%; width:100%; background:#000; overflow:hidden; font-family:sans-serif; }
 #mainImage { width:100% !important; height:100% !important; display:block; position:absolute; top:0; left:0; }
-#debug { position:fixed; top:0; left:0; right:0; z-index:999; background:#0b5ed7; color:#fff; padding:6px 10px 6px 10ch; font-size:13px; font-family:monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; opacity:0.7; }
+#debug { position:fixed; top:0; left:0; right:0; z-index:999; background:#0b5ed7; color:#fff; padding:6px 10px; font-size:13px; font-family:monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; opacity:0.85; }
 .progress-container { position:fixed; bottom:0; left:0; right:0; height:28px; background:#222; z-index:100; }
 .progress-bg { position:absolute; top:0; right:0; bottom:0; left:0; background:-webkit-linear-gradient(left, #4a90e2, #f39c12 60%, #e74c3c); }
-.progress-mask { position:absolute; top:0; bottom:0; left:0; background:#000; width:100%; -webkit-animation:shrink 300s linear forwards; animation:shrink 300s linear forwards; z-index:1; }
+.progress-mask { position:absolute; top:0; bottom:0; left:0; background:#000; width:100%; z-index:1; }
 .scale { position:absolute; top:0; left:0; width:100%; height:28px; z-index:101; color:white; font-size:14px; font-weight:bold; text-shadow:0 0 4px #000; }
 .scale span { display:block; float:left; width:20%; text-align:center; line-height:28px; }
 @-webkit-keyframes shrink { from {width:100%} to {width:0%} }
@@ -22,7 +22,7 @@ html, body { height:100%; width:100%; background:#000; overflow:hidden; font-fam
 </head>
 <body onclick="skip()">
 
-<div id="debug">Sincronizando horário da internet...</div>
+<div id="debug">Inicializando...</div>
 <img id="mainImage" src="" alt="Dashboard" onload="onImageLoad()" onerror="onImageError()">
 
 <div class="progress-container">
@@ -34,240 +34,260 @@ html, body { height:100%; width:100%; background:#000; overflow:hidden; font-fam
 </div>
 
 <script>
+// =============================================
+// Variáveis globais mínimas
+// =============================================
 var repoUrl = 'https://raw.githubusercontent.com/sfarinajr/ipad-dashboard/main/';
 var imagens = [];
 var idx = 0;
 var loadTimeout = null;
 var autoTimeout = null;
+var timeOffset = 0;
+var waitingCountdown = null;
 
 var debug = document.getElementById('debug');
 var imgElement = document.getElementById('mainImage');
 var progressMask = document.getElementById('progressMask');
 
-var baseUrlRaiz = repoUrl;
-var manifestRaiz = repoUrl + 'imagensPNG.txt';
+var baseUrlRaiz   = repoUrl;
+var manifestRaiz  = repoUrl + 'imagensPNG.txt';
 var baseUrlCarros = repoUrl + 'carros/';
 var manifestCarros = repoUrl + 'carros/imagens_carros.txt';
 
 var imagensRaiz = [];
 var imagensCarros = [];
-var timeOffset = 0;
 
-function getRealMs() { return Date.now() + timeOffset; }
+// =============================================
+// Funções de tempo (hora internet)
+// =============================================
+function getRealMs() {
+  return Date.now() + timeOffset;
+}
 
 function syncServerTime(callback) {
   var xhr = new XMLHttpRequest();
-  xhr.open('HEAD', manifestRaiz + '?_=' + Date.now(), true);
+  xhr.open('HEAD', manifestRaiz + '?v=' + Date.now(), true);
   xhr.onreadystatechange = function() {
     if (xhr.readyState === 4) {
-      var dateStr = xhr.getResponseHeader('Date');
-      if (dateStr) {
-        timeOffset = new Date(dateStr).getTime() - Date.now();
+      var dateHeader = xhr.getResponseHeader('Date');
+      if (dateHeader) {
+        timeOffset = new Date(dateHeader).getTime() - Date.now();
       }
-      if (callback) callback();
+      callback();
     }
   };
-  xhr.onerror = function() { if (callback) callback(); };
   xhr.send();
 }
 
-function log(msg) {
-    var total = imagens.length;
-    var num = (idx + 1);
-    var pos = total > 0 ? ' (' + num + '/' + total + ')' : '';
-    debug.innerHTML = msg + pos;
-}
-
-function savePosition() {
-    try {
-        localStorage.setItem('lastIdx', idx);
-        localStorage.setItem('lastSlotStart', getCurrentSlotStartMs());
-    } catch(e) {}
-}
-
 function getCurrentSlotStartMs() {
-    var realMs = getRealMs();
-    var now = new Date(realMs);
-    var minutes = now.getMinutes();
-    var mod = minutes % 5;
-    minutes -= mod;
-    var slotDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), minutes, 0, 0);
-    return slotDate.getTime();
+  var ms = getRealMs();
+  var d = new Date(ms);
+  var min = d.getMinutes();
+  min = min - (min % 5);
+  var slot = new Date(d.getFullYear(), d.getMonth(), d.getDate(), d.getHours(), min, 0, 0);
+  return slot.getTime();
 }
 
-function getMsToNextSlot() {
-    var nowReal = getRealMs();
-    var currentSlot = getCurrentSlotStartMs();
-    var nextSlot = currentSlot + 300000;
-    var delay = nextSlot - nowReal;
-    if (delay <= 0) delay += 300000;
-    return Math.max(delay, 2000); // mínimo 2 segundos para ver a mensagem
+function getMsUntilNextSlot() {
+  var now = getRealMs();
+  var current = getCurrentSlotStartMs();
+  var next = current + 300000;
+  var diff = next - now;
+  if (diff <= 0) diff += 300000;
+  return diff;
 }
 
-function resetProgress(durationSec) {
-    progressMask.style.webkitAnimation = 'none';
-    progressMask.style.animation = 'none';
-    progressMask.style.width = '100%';
-    progressMask.offsetHeight;
-    progressMask.style.webkitAnimation = 'shrink ' + durationSec + 's linear forwards';
-    progressMask.style.animation = 'shrink ' + durationSec + 's linear forwards';
+// =============================================
+// Debug e progresso
+// =============================================
+function log(msg) {
+  var total = imagens.length;
+  var pos = total > 0 ? ' (' + (idx+1) + '/' + total + ')' : '';
+  debug.innerHTML = msg + pos;
+}
+
+function updateWaitingCountdown() {
+  if (!waitingCountdown) return;
+  var remaining = Math.ceil(waitingCountdown / 1000);
+  debug.innerHTML = 'Aguardando próximo múltiplo de 5 min... (' + remaining + 's)';
+  waitingCountdown -= 1000;
+  if (waitingCountdown > 0) {
+    setTimeout(updateWaitingCountdown, 1000);
+  }
+}
+
+// =============================================
+// Funções principais do slideshow
+// =============================================
+function resetProgress(sec) {
+  progressMask.style.webkitAnimation = 'none';
+  progressMask.style.animation = 'none';
+  progressMask.style.width = '100%';
+  progressMask.offsetHeight; // reflow
+  progressMask.style.webkitAnimation = 'shrink ' + sec + 's linear forwards';
+  progressMask.style.animation = 'shrink ' + sec + 's linear forwards';
 }
 
 function onImageLoad() {
-    if (loadTimeout) clearTimeout(loadTimeout);
-    var slotEndMs = getCurrentSlotStartMs() + 300000;
-    var remainingSec = Math.ceil((slotEndMs - getRealMs()) / 1000);
-    if (remainingSec < 10) remainingSec = 300;
-    resetProgress(remainingSec);
-    log(imagens[idx].name);
-    scheduleNextAdvance();
+  if (loadTimeout) clearTimeout(loadTimeout);
+  var end = getCurrentSlotStartMs() + 300000;
+  var remain = Math.ceil((end - getRealMs()) / 1000);
+  if (remain < 10) remain = 300;
+  resetProgress(remain);
+  log(imagens[idx].name);
+  scheduleNext();
 }
 
 function onImageError() {
-    if (loadTimeout) clearTimeout(loadTimeout);
-    log('ERRO: ' + imagens[idx].name);
-    setTimeout(proxima, 5000);
+  if (loadTimeout) clearTimeout(loadTimeout);
+  log('ERRO carregando: ' + imagens[idx].name);
+  setTimeout(nextImage, 5000);
 }
 
 function mostrarImagem() {
-    if (imagens.length === 0) return;
-    imgElement.src = imagens[idx].urlBase + '?t=' + Date.now();
-    if (loadTimeout) clearTimeout(loadTimeout);
-    loadTimeout = setTimeout(function() {
-        log('TIMEOUT: ' + imagens[idx].name);
-        proxima();
-    }, 30000);
+  if (imagens.length === 0) return;
+  imgElement.src = imagens[idx].urlBase + '?v=' + Date.now();
+  loadTimeout = setTimeout(function(){
+    log('TIMEOUT: ' + imagens[idx].name);
+    nextImage();
+  }, 30000);
 }
 
-function proxima() {
-    if (imagens.length === 0) return;
-    idx = (idx + 1) % imagens.length;
-    savePosition();
-    mostrarImagem();
+function nextImage() {
+  idx = (idx + 1) % imagens.length;
+  try { localStorage.setItem('lastIdx', idx); } catch(e){}
+  mostrarImagem();
 }
 
 function skip() {
-    if (autoTimeout) clearTimeout(autoTimeout);
-    proxima();
+  if (autoTimeout) clearTimeout(autoTimeout);
+  nextImage();
 }
 
-function scheduleNextAdvance() {
-    if (autoTimeout) clearTimeout(autoTimeout);
-    autoTimeout = setTimeout(advanceToNext, getMsToNextSlot());
+function scheduleNext() {
+  if (autoTimeout) clearTimeout(autoTimeout);
+  autoTimeout = setTimeout(nextImage, getMsUntilNextSlot());
 }
 
-function advanceToNext() {
-    autoTimeout = null;
-    if (imagens.length === 0) return;
-    idx = (idx + 1) % imagens.length;
-    savePosition();
-    mostrarImagem();
-}
-
-function parseManifest(texto) {
-    var array = [];
-    var linhas = texto.split('\n');
-    for (var i = 0; i < linhas.length; i++) {
-        var linha = linhas[i].trim();
-        if (linha && (linha.indexOf('.png') > -1 || linha.indexOf('.PNG') > -1)) {
-            array.push(linha);
-        }
-    }
-    return array;
-}
-
+// =============================================
+// Construção da lista + lógica de espera
+// =============================================
 function buildImagens() {
-    var i = 0; var j = 0; imagens = [];
-    while (j < imagensRaiz.length) {
-        var qtdCarros = Math.min(3, imagensCarros.length - i);
-        for (var k = 0; k < qtdCarros; k++) {
-            imagens.push({ urlBase: baseUrlCarros + imagensCarros[i], name: imagensCarros[i] });
-            i++;
-        }
-        imagens.push({ urlBase: baseUrlRaiz + imagensRaiz[j], name: imagensRaiz[j] });
-        j++;
-    }
-    while (i < imagensCarros.length) {
-        imagens.push({ urlBase: baseUrlCarros + imagensCarros[i], name: imagensCarros[i] });
-        i++;
-    }
+  var i = 0, j = 0;
+  imagens = [];
 
-    if (imagens.length === 0) {
-        log('Erro: Lista vazia');
-        return;
+  while (j < imagensRaiz.length) {
+    var qtd = Math.min(3, imagensCarros.length - i);
+    for (var k = 0; k < qtd; k++) {
+      imagens.push({urlBase: baseUrlCarros + imagensCarros[i], name: imagensCarros[i]});
+      i++;
     }
+    imagens.push({urlBase: baseUrlRaiz + imagensRaiz[j], name: imagensRaiz[j]});
+    j++;
+  }
+  while (i < imagensCarros.length) {
+    imagens.push({urlBase: baseUrlCarros + imagensCarros[i], name: imagensCarros[i]});
+    i++;
+  }
 
-    log('Lista mesclada carregada: ' + imagens.length + ' imagens');
+  if (imagens.length === 0) {
+    log('Nenhuma imagem encontrada');
+    return;
+  }
 
-    try {
-        var currentSlotStart = getCurrentSlotStartMs();
-        var savedSlot = localStorage.getItem('lastSlotStart');
-        var isFirstTime = localStorage.getItem('lastIdx') === null;
+  log('Carregadas ' + imagens.length + ' imagens');
 
-        if (!isFirstTime && savedSlot && parseInt(savedSlot) === currentSlotStart) {
-            // Continua dentro do mesmo slot de 5 minutos
-            idx = parseInt(localStorage.getItem('lastIdx')) % imagens.length;
-            mostrarImagem();
-        } else {
-            // Primeira vez OU slot novo → aguarda alinhamento perfeito
-            var waitMs = getMsToNextSlot();
-            var waitSec = Math.ceil(waitMs / 1000);
-            debug.innerHTML = 'Aguardando alinhamento (' + waitSec + 's)...';
-            
-            setTimeout(function() {
-                idx = Math.floor(getRealMs() / 300000) % imagens.length;
-                savePosition();
-                mostrarImagem();
-            }, waitMs);
-        }
-    } catch(e) {
-        // fallback seguro para iPad antigo
-        idx = 0;
-        mostrarImagem();
+  // Limpa slot antigo na primeira carga
+  try {
+    localStorage.removeItem('lastSlotStart');
+  } catch(e){}
+
+  var savedIdx = null;
+  try {
+    savedIdx = localStorage.getItem('lastIdx');
+  } catch(e){}
+
+  var delay = getMsUntilNextSlot();
+  if (delay > 300000 - 10000) {  // Se já está muito perto do próximo, força espera completa
+    delay = 300000;
+  }
+
+  if (delay > 5000) {
+    // Espera visível
+    waitingCountdown = delay;
+    updateWaitingCountdown();
+    setTimeout(function(){
+      if (savedIdx !== null) {
+        idx = parseInt(savedIdx, 10) % imagens.length;
+      } else {
+        idx = Math.floor(getRealMs() / 300000) % imagens.length;
+      }
+      try { localStorage.setItem('lastIdx', idx); } catch(e){}
+      mostrarImagem();
+    }, delay);
+  } else {
+    // Já está no slot → usa salvo ou calcula
+    if (savedIdx !== null) {
+      idx = parseInt(savedIdx, 10) % imagens.length;
+    } else {
+      idx = Math.floor(getRealMs() / 300000) % imagens.length;
     }
+    try { localStorage.setItem('lastIdx', idx); } catch(e){}
+    mostrarImagem();
+  }
+}
+
+function parseManifest(text) {
+  var arr = [];
+  var lines = text.split('\n');
+  for (var i = 0; i < lines.length; i++) {
+    var ln = lines[i].trim();
+    if (ln && (ln.indexOf('.png') !== -1 || ln.indexOf('.PNG') !== -1)) {
+      arr.push(ln);
+    }
+  }
+  return arr;
 }
 
 function loadManifestRaiz() {
-    log('Carregando lista raiz...');
-    var xhr = new XMLHttpRequest();
-    xhr.open('GET', manifestRaiz + '?_=' + Date.now(), true);
-    xhr.onreadystatechange = function() {
-        if (xhr.readyState === 4) {
-            if (xhr.status === 200) {
-                imagensRaiz = parseManifest(xhr.responseText || '');
-                log('Lista raiz carregada: ' + imagensRaiz.length + ' imagens');
-                loadManifestCarros();
-            } else {
-                log('Erro lista raiz. Status: ' + xhr.status);
-                setTimeout(loadManifestRaiz, 10000);
-            }
-        }
-    };
-    xhr.send();
+  log('Baixando lista raiz...');
+  var xhr = new XMLHttpRequest();
+  xhr.open('GET', manifestRaiz + '?v=' + Date.now(), true);
+  xhr.onreadystatechange = function() {
+    if (xhr.readyState === 4 && xhr.status === 200) {
+      imagensRaiz = parseManifest(xhr.responseText);
+      log('Raiz: ' + imagensRaiz.length + ' itens');
+      loadManifestCarros();
+    } else if (xhr.readyState === 4) {
+      log('Erro raiz: ' + xhr.status);
+      setTimeout(loadManifestRaiz, 15000);
+    }
+  };
+  xhr.send();
 }
 
 function loadManifestCarros() {
-    log('Carregando lista carros...');
-    var xhr = new XMLHttpRequest();
-    xhr.open('GET', manifestCarros + '?_=' + Date.now(), true);
-    xhr.onreadystatechange = function() {
-        if (xhr.readyState === 4) {
-            if (xhr.status === 200) {
-                imagensCarros = parseManifest(xhr.responseText || '');
-                log('Lista carros carregada: ' + imagensCarros.length + ' imagens');
-                buildImagens();
-            } else {
-                log('Erro lista carros. Status: ' + xhr.status);
-                setTimeout(loadManifestCarros, 10000);
-            }
-        }
-    };
-    xhr.send();
+  log('Baixando lista carros...');
+  var xhr = new XMLHttpRequest();
+  xhr.open('GET', manifestCarros + '?v=' + Date.now(), true);
+  xhr.onreadystatechange = function() {
+    if (xhr.readyState === 4 && xhr.status === 200) {
+      imagensCarros = parseManifest(xhr.responseText);
+      log('Carros: ' + imagensCarros.length + ' itens');
+      buildImagens();
+    } else if (xhr.readyState === 4) {
+      log('Erro carros: ' + xhr.status);
+      setTimeout(loadManifestCarros, 15000);
+    }
+  };
+  xhr.send();
 }
 
+// =============================================
 // Início
+// =============================================
 syncServerTime(function() {
-    loadManifestRaiz();
+  loadManifestRaiz();
 });
 </script>
 </body>
