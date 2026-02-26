@@ -120,7 +120,7 @@ var progressMask = document.getElementById('progressMask');
 
 var baseUrlRaiz = repoUrl;
 var manifestRaiz = repoUrl + 'imagensPNG.txt';
-var baseUrlCarros = repoUrl + 'carros/screenshots/';
+var baseUrlCarros = repoUrl + 'carros/';                    // ← CORRIGIDO (era o erro principal)
 var manifestCarros = repoUrl + 'carros/imagens_carros.txt';
 
 var imagensRaiz = [];
@@ -157,7 +157,8 @@ function getCurrentSlotIndex() {
 function resetProgress(durationSec) {
     progressMask.style.webkitAnimation = 'none';
     progressMask.style.animation = 'none';
-    progressMask.offsetHeight; // força reflow
+    progressMask.style.width = '100%';           // ← FORÇA VISUALIZAÇÃO
+    progressMask.offsetHeight;                   // reflow para iPad antigo
     progressMask.style.webkitAnimation = 'shrink ' + durationSec + 's linear forwards';
     progressMask.style.animation = 'shrink ' + durationSec + 's linear forwards';
 }
@@ -167,7 +168,7 @@ function onImageLoad() {
     
     var slotEndMs = getCurrentSlotStartMs() + 300000;
     var remainingSec = Math.ceil((slotEndMs - Date.now()) / 1000);
-    if (remainingSec < 10) remainingSec = 300; // segurança
+    if (remainingSec < 10) remainingSec = 300;
     
     resetProgress(remainingSec);
     log(imagens[idx].name);
@@ -265,7 +266,7 @@ function buildImagens() {
     }
 
     if (imagens.length > 0) {
-        log('Lista mesclada carregada: ' + imagens.length + ' imagens (3 carros : 1 raiz)');
+        log('Lista mesclada carregada: ' + imagens.length + ' imagens');
         
         try {
             var currentSlotStart = getCurrentSlotStartMs();
@@ -278,7 +279,6 @@ function buildImagens() {
                 idx = getCurrentSlotIndex();
             }
             
-            // segurança extra para iPad antigo
             idx = (idx % imagens.length + imagens.length) % imagens.length;
             
             savePosition();
