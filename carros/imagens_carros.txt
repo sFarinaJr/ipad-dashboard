@@ -20,11 +20,3 @@ screenshots/screenshot019.png
 screenshots/screenshot020.png
 screenshots/screenshot021.png
 screenshots/screenshot022.png
-screenshots/screenshot023.png
-screenshots/screenshot024.png
-screenshots/screenshot025.png
-screenshots/screenshot026.png
-screenshots/screenshot027.png
-screenshots/screenshot028.png
-screenshots/screenshot029.png
-screenshots/screenshot030.png
