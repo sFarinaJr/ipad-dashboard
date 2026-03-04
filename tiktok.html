@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>Dashboard TikTok - Mesclado Carros</title>
+<title>Dashboard TikTok - Mesclado 5min</title>
 <style>
 * { margin:0; padding:0; border:0; }
 html, body { height:100%; width:100%; background:#000; overflow:hidden; font-family:sans-serif; }
@@ -23,239 +23,177 @@ html, body { height:100%; width:100%; background:#000; overflow:hidden; font-fam
 </head>
 <body onclick="skip()">
 
-<div id="debug">Obtendo hora da internet...</div>
+<div id="debug">Obtendo hora...</div>
 <div id="embedContainer"></div>
 
 <div class="progress-container">
   <div class="progress-bg"></div>
   <div class="progress-mask" id="progressMask"></div>
   <div class="scale">
-      <span>60s</span><span>45s</span><span>30s</span><span>15s</span><span>0s</span>
+      <span>5m</span><span>4m</span><span>3m</span><span>2m</span><span>1m</span>
   </div>
 </div>
 
 <script>
-// =============================================
 // Variáveis
-// =============================================
 var repoUrl = 'https://raw.githubusercontent.com/sfarinajr/ipad-dashboard/main/';
 var apiBase = 'https://tiktok-api23.p.rapidapi.com/api/';
 var apiKey = '2569e9676fmsh923c6c67ec6e126p1114fdjsnc8b1616d48b5';
 var apiHost = 'tiktok-api23.p.rapidapi.com';
 
-var usernamesCarros = ['supercarblondie', 'shmee150', 'dougdemuro', 'carwow', 'supercar-driver']; // Perfis de carros; adicione mais
+var usernamesCarros = ['supercarblondie', 'shmee150', 'dougdemuro', 'carwow']; // adicione mais
 
-var fallbackVideoUrls = [
-  'https://www.tiktok.com/@supercarblondie/video/1234567890123456789', // substitua por reais se quiser
-  'https://www.tiktok.com/@shmee150/video/9876543210987654321'
-];
+var fallbackUrls = ['https://www.tiktok.com/@supercarblondie/video/7219450454705573162']; // adicione reais
 
 var imagens = [];
 var idx = 0;
 var autoTimeout = null;
 var serverOffset = 0;
+var currentItemStart = 0;
 
 var debug = document.getElementById('debug');
 var embedContainer = document.getElementById('embedContainer');
 var progressMask = document.getElementById('progressMask');
 
-var manifestRaiz = repoUrl + 'videos_raiz.txt'; // txt com URLs completas de vídeos TikTok fixos (um por linha)
+var manifestRaiz = repoUrl + 'videos_raiz.txt'; // URLs completas de vídeos ou imagens PNG
 var imagensRaiz = [];
 var imagensCarros = [];
 
 // Hora server
 function getServerMs() { return Date.now() + serverOffset; }
 
-// Sync hora
+// Sync
 function syncServerTime(callback) {
   var xhr = new XMLHttpRequest();
   xhr.open('HEAD', apiBase + 'user/detail?v=' + Date.now(), true);
   xhr.onreadystatechange = function() {
     if (xhr.readyState === 4) {
       var dateHeader = xhr.getResponseHeader('Date');
-      if (dateHeader) {
-        serverOffset = new Date(dateHeader).getTime() - Date.now();
-        debug.innerHTML = 'Hora OK';
-      } else {
-        debug.innerHTML = 'Hora local';
-      }
+      if (dateHeader) serverOffset = new Date(dateHeader).getTime() - Date.now();
+      debug.innerHTML = dateHeader ? 'Hora OK' : 'Hora local';
       callback();
     }
   };
-  xhr.onerror = function() { callback(); };
+  xhr.onerror = callback;
   xhr.send();
 }
 
-// Slot 1 min
-function getCurrentSlotStartMs() {
-  var ms = getServerMs();
-  var d = new Date(ms);
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate(), d.getHours(), d.getMinutes(), 0, 0).getTime();
-}
-
+// Slot 5 min
 function msToNextSlot() {
   var now = getServerMs();
-  var current = getCurrentSlotStartMs();
-  var next = current + 60000;
-  var diff = next - now;
-  if (diff <= 0) diff += 60000;
+  var slotMs = 300000;
+  var diff = slotMs - (now % slotMs);
+  if (diff <= 0) diff += slotMs;
   return diff;
 }
 
 // Progresso
 function resetProgress() {
-  var remainingSec = Math.ceil((getCurrentSlotStartMs() + 60000 - getServerMs()) / 1000);
-  if (remainingSec < 10) remainingSec = 60;
-  progressMask.style.webkitAnimation = 'none';
+  var remaining = Math.ceil(msToNextSlot() / 1000);
+  if (remaining < 10) remaining = 300;
   progressMask.style.animation = 'none';
   progressMask.style.width = '100%';
   progressMask.offsetHeight;
-  progressMask.style.webkitAnimation = 'shrink ' + remainingSec + 's linear forwards';
-  progressMask.style.animation = 'shrink ' + remainingSec + 's linear forwards';
+  progressMask.style.animation = 'shrink ' + remaining + 's linear forwards';
 }
 
-// Fetch secUid
-function fetchSecUid(username, callback) {
-  log('secUid @' + username);
+// Fetch secUid (ajuste path se necessário)
+function fetchSecUid(username, cb) {
   var xhr = new XMLHttpRequest();
   xhr.open('GET', apiBase + 'user/detail?uniqueId=' + username, true);
   xhr.setRequestHeader('X-RapidAPI-Key', apiKey);
   xhr.setRequestHeader('X-RapidAPI-Host', apiHost);
   xhr.onreadystatechange = function() {
     if (xhr.readyState === 4 && xhr.status === 200) {
-      var response = JSON.parse(xhr.responseText);
-      var secUid = response.data?.user?.sec_uid || response.user?.secUid || '';
-      callback(secUid);
-    } else if (xhr.readyState === 4) {
-      log('Erro secUid ' + xhr.status);
-      callback('');
-    }
+      var res = JSON.parse(xhr.responseText);
+      cb(res.data?.user?.sec_uid || '');
+    } else if (xhr.readyState === 4) cb('');
   };
   xhr.send();
 }
 
-// Fetch vídeos de usuário (tente /post/user ou fallback para search)
-function fetchVideosCarros(callback) {
-  var username = usernamesCarros[0]; // ou random: usernamesCarros[Math.floor(Math.random()*usernamesCarros.length)]
+// Fetch vídeos
+function fetchVideosCarros(cb) {
+  var username = usernamesCarros[0];
   fetchSecUid(username, function(secUid) {
-    if (!secUid) {
-      log('Sem secUid - fallback search');
-      fetchFallbackSearch(callback);
-      return;
-    }
-    log('Posts @' + username);
+    if (!secUid) return fallback(cb);
     var xhr = new XMLHttpRequest();
-    xhr.open('GET', apiBase + 'post/user?secUid=' + secUid + '&count=30', true); // tente isso primeiro
-    // Alternativas se 404: mude para 'aweme/post' ou 'user/aweme'
-    // xhr.open('GET', apiBase + 'aweme/post?secUid=' + secUid + '&count=30', true);
+    xhr.open('GET', apiBase + 'aweme/post?secUid=' + secUid + '&count=30', true); // tente 'aweme/post' ou 'post/user'
+    // Se 404, mude para 'post/user' ou use search abaixo
     xhr.setRequestHeader('X-RapidAPI-Key', apiKey);
     xhr.setRequestHeader('X-RapidAPI-Host', apiHost);
     xhr.onreadystatechange = function() {
       if (xhr.readyState === 4 && xhr.status === 200) {
-        var response = JSON.parse(xhr.responseText);
-        var list = response.data?.aweme_list || response.aweme_list || response.data?.videos || [];
-        list.forEach(function(video) {
-          var uid = video.author?.unique_id || username;
-          var vid = video.aweme_id || video.id || '';
-          if (vid) {
-            var url = 'https://www.tiktok.com/@' + uid + '/video/' + vid;
-            imagensCarros.push({urlBase: url, name: vid});
-          }
+        var res = JSON.parse(xhr.responseText);
+        var list = res.aweme_list || res.data?.aweme_list || [];
+        list.forEach(v => {
+          var uid = v.author?.unique_id || username;
+          var vid = v.aweme_id || v.id;
+          if (vid) imagensCarros.push({urlBase: 'https://www.tiktok.com/@' + uid + '/video/' + vid, name: vid, isVideo: true});
         });
-        log('Carros: ' + imagensCarros.length);
-        if (imagensCarros.length === 0) fetchFallbackSearch(callback);
-        else callback();
-      } else if (xhr.readyState === 4) {
-        log('Erro posts ' + xhr.status + ' - tentando search');
-        fetchFallbackSearch(callback);
-      }
+        cb();
+      } else fallback(cb);
     };
     xhr.send();
   });
 }
 
-// Fallback: busca temática
-function fetchFallbackSearch(callback) {
-  log('Buscando "supercar"');
-  var xhr = new XMLHttpRequest();
-  xhr.open('GET', apiBase + 'search/posts?query=supercar OR jdm OR carros&count=30', true);
-  xhr.setRequestHeader('X-RapidAPI-Key', apiKey);
-  xhr.setRequestHeader('X-RapidAPI-Host', apiHost);
-  xhr.onreadystatechange = function() {
-    if (xhr.readyState === 4 && xhr.status === 200) {
-      var response = JSON.parse(xhr.responseText);
-      var list = response.data || response.aweme_list || [];
-      list.forEach(function(post) {
-        var uid = post.author?.unique_id || 'unknown';
-        var vid = post.aweme_id || post.id;
-        if (vid) {
-          var url = 'https://www.tiktok.com/@' + uid + '/video/' + vid;
-          imagensCarros.push({urlBase: url, name: vid});
-        }
-      });
-      log('Fallback: ' + imagensCarros.length);
-    }
-    if (imagensCarros.length === 0) {
-      fallbackVideoUrls.forEach(function(u) {
-        var id = u.match(/video\/(\d+)/)?.[1] || 'fallback';
-        imagensCarros.push({urlBase: u, name: id});
-      });
-    }
-    callback();
-  };
-  xhr.send();
+function fallback(cb) {
+  fallbackUrls.forEach(u => {
+    var id = u.match(/video\/(\d+)/)?.[1] || 'fallback';
+    imagensCarros.push({urlBase: u, name: id, isVideo: true});
+  });
+  cb();
 }
 
-// Mostrar vídeo
-function mostrarImagem() {
-  if (imagens.length === 0) return;
+// Mostrar (vídeo ou imagem)
+function mostrarItem() {
   resetProgress();
-  var url = imagens[idx].urlBase;
-  var id = imagens[idx].name;
-  var html = '<blockquote class="tiktok-embed" cite="' + url + '" data-video-id="' + id + '" style="width:100%;height:100%;"><section></section></blockquote>';
-  embedContainer.innerHTML = html;
-  if (!document.getElementById('tiktokScript')) {
-    var s = document.createElement('script');
-    s.id = 'tiktokScript';
-    s.async = true;
-    s.src = 'https://www.tiktok.com/embed.js';
-    document.body.appendChild(s);
+  var item = imagens[idx];
+  if (item.isVideo) {
+    var html = '<blockquote class="tiktok-embed" cite="' + item.urlBase + '" data-video-id="' + item.name + '" style="width:100%;height:100%;"><section></section></blockquote>';
+    embedContainer.innerHTML = html;
+    if (!document.getElementById('tiktokScript')) {
+      var s = document.createElement('script');
+      s.id = 'tiktokScript';
+      s.src = 'https://www.tiktok.com/embed.js';
+      document.body.appendChild(s);
+    }
+  } else {
+    // Para raiz (imagem estática)
+    embedContainer.innerHTML = '<img src="' + item.urlBase + '" style="width:100%;height:100%;object-fit:contain;">';
   }
-  log(imagens[idx].name + ' (' + (idx+1) + '/' + imagens.length + ')');
-  scheduleNextAdvance();
+  debug.innerHTML = item.name + ' (' + (idx+1) + '/' + imagens.length + ')';
+  scheduleNext();
 }
 
-function log(msg) { debug.innerHTML = msg; }
+function scheduleNext() {
+  if (autoTimeout) clearTimeout(autoTimeout);
+  autoTimeout = setTimeout(nextItem, msToNextSlot());
+}
 
-function nextImage() {
+function nextItem() {
   idx = (idx + 1) % imagens.length;
   try { localStorage.setItem('lastIdx', idx); } catch(e) {}
-  mostrarImagem();
+  mostrarItem();
 }
 
 function skip() {
   if (autoTimeout) clearTimeout(autoTimeout);
-  nextImage();
+  nextItem();
 }
 
-function scheduleNextAdvance() {
-  if (autoTimeout) clearTimeout(autoTimeout);
-  autoTimeout = setTimeout(nextImage, msToNextSlot());
-}
-
-// Build array intercalado
+// Build intercalado
 function buildImagens() {
-  var i = 0, j = 0;
+  var i=0, j=0;
   imagens = [];
   while (j < imagensRaiz.length) {
     var qtd = Math.min(3, imagensCarros.length - i);
-    for (var k = 0; k < qtd; k++) {
-      imagens.push(imagensCarros[i++]);
-    }
+    for (var k=0; k<qtd; k++) imagens.push(imagensCarros[i++]);
     imagens.push(imagensRaiz[j++]);
   }
   while (i < imagensCarros.length) imagens.push(imagensCarros[i++]);
-  log('Total: ' + imagens.length);
+  if (imagens.length === 0) debug.innerHTML = 'Nenhum item';
   var delay = msToNextSlot();
   if (delay > 6000) setTimeout(startSlideshow, delay);
   else startSlideshow();
@@ -263,44 +201,38 @@ function buildImagens() {
 
 function startSlideshow() {
   var saved = localStorage.getItem('lastIdx');
-  idx = saved ? parseInt(saved) % imagens.length : Math.floor(getServerMs() / 60000) % imagens.length;
+  idx = saved ? parseInt(saved) % imagens.length : Math.floor(getServerMs() / 300000) % imagens.length;
   localStorage.setItem('lastIdx', idx);
-  mostrarImagem();
+  mostrarItem();
 }
 
 function parseManifest(text) {
   var arr = [];
-  text.split('\n').forEach(function(ln) {
+  text.split('\n').forEach(ln => {
     ln = ln.trim();
-    if (ln && ln.includes('tiktok.com')) {
-      var id = ln.match(/video\/(\d+)/)?.[1] || 'raiz';
-      arr.push({urlBase: ln, name: id});
+    if (ln) {
+      var isVideo = ln.includes('tiktok.com');
+      var id = isVideo ? ln.match(/video\/(\d+)/)?.[1] || 'raiz' : ln;
+      arr.push({urlBase: ln, name: id, isVideo: isVideo});
     }
   });
   return arr;
 }
 
-function loadManifestRaiz() {
-  log('Raiz...');
+function loadRaiz() {
   var xhr = new XMLHttpRequest();
   xhr.open('GET', manifestRaiz + '?v=' + Date.now(), true);
   xhr.onreadystatechange = function() {
     if (xhr.readyState === 4 && xhr.status === 200) {
       imagensRaiz = parseManifest(xhr.responseText);
-      log('Raiz: ' + imagensRaiz.length);
       fetchVideosCarros(buildImagens);
-    } else if (xhr.readyState === 4) {
-      log('Erro raiz ' + xhr.status);
-      setTimeout(loadManifestRaiz, 15000);
-    }
+    } else if (xhr.readyState === 4) setTimeout(loadRaiz, 15000);
   };
   xhr.send();
 }
 
 // Início
-syncServerTime(function() {
-  loadManifestRaiz();
-});
+syncServerTime(function() { loadRaiz(); });
 </script>
 </body>
 </html>
