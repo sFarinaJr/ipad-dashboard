@@ -48,7 +48,7 @@ var debug = document.getElementById('debug');
 var imgElement = document.getElementById('mainImage');
 var progressMask = document.getElementById('progressMask');
 
-var manifestRaiz  = repoUrl + 'imagensPNG.txt';
+var manifestRaiz  = repoUrl + 'imagensPNG.txt';     // pode manter ou renomear depois
 var manifestCarros = repoUrl + 'carros/imagens_carros.txt';
 var baseUrlRaiz   = repoUrl;
 var baseUrlCarros = repoUrl + 'carros/';
@@ -104,7 +104,7 @@ function msToNextSlot() {
 }
 
 // =============================================
-// BARRA DE PROGRESSO – CORRIGIDA E FIDELIDADE TOTAL
+// BARRA DE PROGRESSO
 // =============================================
 function resetProgress() {
   var remainingSec = Math.ceil((getCurrentSlotStartMs() + 300000 - getServerMs()) / 1000);
@@ -124,7 +124,7 @@ function resetProgress() {
 // =============================================
 function onImageLoad() {
   if (loadTimeout) clearTimeout(loadTimeout);
-  resetProgress();               // garante barra correta no onload
+  resetProgress();
   log(imagens[idx].name);
   scheduleNextAdvance();
 }
@@ -137,7 +137,7 @@ function onImageError() {
 
 function mostrarImagem() {
   if (imagens.length === 0) return;
-  resetProgress();               // garante barra ANTES da imagem aparecer
+  resetProgress();
   imgElement.src = imagens[idx].urlBase + '?v=' + Date.now();
   loadTimeout = setTimeout(function(){
     log('TIMEOUT: ' + imagens[idx].name);
@@ -222,7 +222,10 @@ function parseManifest(text) {
   var lines = text.split('\n');
   for (var i = 0; i < lines.length; i++) {
     var ln = lines[i].trim();
-    if (ln && (ln.indexOf('.png') !== -1 || ln.indexOf('.PNG') !== -1)) arr.push(ln);
+    if (ln && (ln.indexOf('.jpg') !== -1 || ln.indexOf('.JPG') !== -1 || 
+               ln.indexOf('.png') !== -1 || ln.indexOf('.PNG') !== -1)) {
+      arr.push(ln);
+    }
   }
   return arr;
 }
