@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>Dashboard - Perfis Instagram</title>
+<title>Dashboard - Reels Aleatórios Instagram</title>
 <style>
 * { margin:0; padding:0; border:0; }
 html, body { height:100%; width:100%; background:#000; overflow:hidden; font-family:sans-serif; }
@@ -20,7 +20,7 @@ html, body { height:100%; width:100%; background:#000; overflow:hidden; font-fam
 </head>
 <body onclick="skip()">
 
-<div id="debug">Carregando perfis do Instagram...</div>
+<div id="debug">Carregando Reels aleatórios...</div>
 <div id="embedContainer"></div>
 
 <div class="progress-container">
@@ -32,73 +32,83 @@ html, body { height:100%; width:100%; background:#000; overflow:hidden; font-fam
 </div>
 
 <script>
-let perfis = [];
-let idx = 0;
+// Lista manual de Reels por username (adicione mais URLs reais aqui!)
+const reelsPorPerfil = {
+  'supercarblondie': [
+    'https://www.instagram.com/reel/C_exemplo1/',   // substitua por reais
+    'https://www.instagram.com/reel/C_exemplo2/',
+    'https://www.instagram.com/reel/C_exemplo3/',
+    // pegue 5-15 Reels recentes do perfil @supercarblondie
+  ],
+  'shmee150': [
+    'https://www.instagram.com/reel/D_exemploA/',
+    'https://www.instagram.com/reel/D_exemploB/',
+    // adicione Reels do @shmee150
+  ],
+  '20car.company': [
+    'https://www.instagram.com/reel/E_exemploX/',
+    // adicione do @20car.company
+  ]
+  // adicione mais perfis se quiser
+};
+
+const usernames = Object.keys(reelsPorPerfil);
+let currentReel = null;
 let autoTimeout = null;
 
-async function carregarPerfis() {
-  try {
-    const res = await fetch('https://raw.githubusercontent.com/sfarinajr/ipad-dashboard/main/instagram_raiz.txt');
-    if (!res.ok) throw new Error('Falha ao carregar txt');
-    const text = await res.text();
-    perfis = text.split('\n')
-                 .map(line => line.trim())
-                 .filter(line => line.startsWith('https://www.instagram.com/') && line.endsWith('/') && line.length > 30);
-    
-    if (perfis.length === 0) {
-      document.getElementById('debug').innerHTML = 'Nenhum perfil Instagram encontrado';
-      return;
-    }
-    
-    document.getElementById('debug').innerHTML = `Carregados ${perfis.length} perfis`;
-    mostrar();
-  } catch (err) {
-    document.getElementById('debug').innerHTML = 'Erro carregando txt: ' + err.message + ' – usando fallback';
-    perfis = [
-      'https://www.instagram.com/supercarblondie/',
-      'https://www.instagram.com/shmee150/',
-      'https://www.instagram.com/20car.company/'  // ajuste se necessário
-    ];
-    mostrar();
-  }
+function getRandomReel() {
+  const username = usernames[Math.floor(Math.random() * usernames.length)];
+  const reels = reelsPorPerfil[username];
+  if (!reels || reels.length === 0) return null;
+  
+  const reelUrl = reels[Math.floor(Math.random() * reels.length)];
+  return { username, reelUrl };
 }
 
 function resetProgress() {
   const mask = document.getElementById('progressMask');
   mask.style.animation = 'none';
   mask.style.width = '100%';
-  void mask.offsetWidth;
+  void mask.offsetWidth; // reflow
   mask.style.animation = 'shrink 300s linear forwards';
 }
 
 function mostrar() {
   resetProgress();
-  const urlPerfil = perfis[idx];
-  const username = urlPerfil.split('/')[3]; // extrai @username
+  const item = getRandomReel();
+  if (!item) {
+    document.getElementById('debug').innerHTML = 'Nenhum Reel disponível';
+    return;
+  }
+  
+  const { username, reelUrl } = item;
   const container = document.getElementById('embedContainer');
   
+  // Embed single Reel (full-screen)
   const html = `
-    <blockquote class="instagram-media" data-instgrm-permalink="${urlPerfil}" data-instgrm-version="14" style="width:100%; height:100%;">
+    <blockquote class="instagram-media" data-instgrm-permalink="${reelUrl}embed" data-instgrm-version="14" style="width:100%; height:100%; background:#000;">
       <section></section>
     </blockquote>
     <div style="position:absolute; bottom:10px; left:0; right:0; text-align:center; color:white; font-size:1.8em; background:rgba(0,0,0,0.6); padding:12px; pointer-events:none;">
-      @${username} – Reels e posts recentes no Instagram
+      @${username} – Reel aleatório
+    </div>
+    <div style="position:absolute; top:10px; right:10px; color:white; font-size:1.2em; background:rgba(0,0,0,0.5); padding:6px; border-radius:6px;">
+      Próximo em 5 min
     </div>`;
   
   container.innerHTML = html;
   
-  document.getElementById('debug').innerHTML = `@${username} (${idx+1}/${perfis.length})`;
+  document.getElementById('debug').innerHTML = `Reel de @${username} (${usernames.length} perfis disponíveis)`;
   
-  // Carrega o script do Instagram só uma vez
+  // Carrega/reprocessa o script do Instagram
   if (!document.getElementById('igScript')) {
     const s = document.createElement('script');
     s.id = 'igScript';
     s.async = true;
     s.src = '//www.instagram.com/embed.js';
     document.body.appendChild(s);
-  } else {
-    // Reprocessa embeds se script já carregado
-    if (window.instgrm && window.instgrm.Embeds) window.instgrm.Embeds.process();
+  } else if (window.instgrm && window.instgrm.Embeds) {
+    window.instgrm.Embeds.process();
   }
   
   schedule();
@@ -110,7 +120,6 @@ function schedule() {
 }
 
 function next() {
-  idx = (idx + 1) % perfis.length;
   mostrar();
 }
 
@@ -119,8 +128,8 @@ function skip() {
   next();
 }
 
-// Inicia
-carregarPerfis();
+// Inicia mostrando o primeiro aleatório
+mostrar();
 </script>
 </body>
 </html>
