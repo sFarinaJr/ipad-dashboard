@@ -4,235 +4,91 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>Dashboard TikTok - Mesclado 5min</title>
+<title>Dashboard Teste - Fallback</title>
 <style>
 * { margin:0; padding:0; border:0; }
 html, body { height:100%; width:100%; background:#000; overflow:hidden; font-family:sans-serif; }
-#embedContainer { width:100% !important; height:100% !important; display:block; position:absolute; top:0; left:0; overflow:hidden; }
-#embedContainer .tiktok-embed { max-width:none !important; width:100% !important; height:100% !important; min-width:0 !important; }
-#debug { position:fixed; top:0; left:0; right:0; z-index:999; background:#0b5ed7; color:#fff; padding:6px 10px 6px 10ch; font-size:13px; font-family:monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; opacity:0.85; }
+#embedContainer { width:100%; height:100%; position:absolute; top:0; left:0; overflow:hidden; }
+#debug { position:fixed; top:0; left:0; right:0; z-index:999; background:#0b5ed7; color:#fff; padding:6px; font-size:13px; font-family:monospace; opacity:0.85; }
 .progress-container { position:fixed; bottom:0; left:0; right:0; height:28px; background:#222; z-index:100; }
-.progress-bg { position:absolute; top:0; right:0; bottom:0; left:0; background:-webkit-linear-gradient(left, #4a90e2, #f39c12 60%, #e74c3c); }
-.progress-mask { position:absolute; top:0; bottom:0; left:0; background:#000; width:100%; z-index:1; }
-.scale { position:absolute; top:0; left:0; width:100%; height:28px; z-index:101; color:white; font-size:14px; font-weight:bold; text-shadow:0 0 4px #000; }
-.scale span { display:block; float:left; width:20%; text-align:center; line-height:28px; }
-@-webkit-keyframes shrink { from {width:100%} to {width:0%} }
+.progress-bg { position:absolute; inset:0; background:linear-gradient(to right, #4a90e2, #f39c12 60%, #e74c3c); }
+.progress-mask { position:absolute; inset:0 0 0 0; background:#000; width:100%; z-index:1; transition:width 0.3s; }
+.scale { position:absolute; inset:0; color:white; font-weight:bold; text-shadow:0 0 4px #000; }
+.scale span { float:left; width:20%; text-align:center; line-height:28px; }
 @keyframes shrink { from {width:100%} to {width:0%} }
 </style>
 </head>
 <body onclick="skip()">
 
-<div id="debug">Obtendo hora...</div>
+<div id="debug">Inicializando...</div>
 <div id="embedContainer"></div>
 
 <div class="progress-container">
   <div class="progress-bg"></div>
   <div class="progress-mask" id="progressMask"></div>
   <div class="scale">
-      <span>5m</span><span>4m</span><span>3m</span><span>2m</span><span>1m</span>
+    <span>5m</span><span>4m</span><span>3m</span><span>2m</span><span>1m</span>
   </div>
 </div>
 
 <script>
-// Variáveis
-var repoUrl = 'https://raw.githubusercontent.com/sfarinajr/ipad-dashboard/main/';
-var apiBase = 'https://tiktok-api23.p.rapidapi.com/api/';
-var apiKey = '2569e9676fmsh923c6c67ec6e126p1114fdjsnc8b1616d48b5';
-var apiHost = 'tiktok-api23.p.rapidapi.com';
+const itens = [
+  {url: 'https://www.tiktok.com/@supercarblondie/video/7219450454705573162', name: 'fallback1', isVideo: true},
+  {url: 'https://www.tiktok.com/@shmee150/video/7123456789012345678', name: 'fallback2', isVideo: true},
+  // Adicione aqui os 2 itens do seu videos_raiz.txt
+  {url: 'https://www.tiktok.com/@supercarblondie/video/7219450454705573162', name: 'raiz1', isVideo: true},
+  {url: 'https://raw.githubusercontent.com/sfarinajr/ipad-dashboard/main/screenshot001.png', name: 'raiz2', isVideo: false}
+];
 
-var usernamesCarros = ['supercarblondie', 'shmee150', 'dougdemuro', 'carwow']; // adicione mais
+let idx = 0;
+let autoTimeout = null;
 
-var fallbackUrls = ['https://www.tiktok.com/@supercarblondie/video/7219450454705573162']; // adicione reais
-
-var imagens = [];
-var idx = 0;
-var autoTimeout = null;
-var serverOffset = 0;
-var currentItemStart = 0;
-
-var debug = document.getElementById('debug');
-var embedContainer = document.getElementById('embedContainer');
-var progressMask = document.getElementById('progressMask');
-
-var manifestRaiz = repoUrl + 'videos_raiz.txt'; // URLs completas de vídeos ou imagens PNG
-var imagensRaiz = [];
-var imagensCarros = [];
-
-// Hora server
-function getServerMs() { return Date.now() + serverOffset; }
-
-// Sync
-function syncServerTime(callback) {
-  var xhr = new XMLHttpRequest();
-  xhr.open('HEAD', apiBase + 'user/detail?v=' + Date.now(), true);
-  xhr.onreadystatechange = function() {
-    if (xhr.readyState === 4) {
-      var dateHeader = xhr.getResponseHeader('Date');
-      if (dateHeader) serverOffset = new Date(dateHeader).getTime() - Date.now();
-      debug.innerHTML = dateHeader ? 'Hora OK' : 'Hora local';
-      callback();
-    }
-  };
-  xhr.onerror = callback;
-  xhr.send();
-}
-
-// Slot 5 min
-function msToNextSlot() {
-  var now = getServerMs();
-  var slotMs = 300000;
-  var diff = slotMs - (now % slotMs);
-  if (diff <= 0) diff += slotMs;
-  return diff;
-}
-
-// Progresso
 function resetProgress() {
-  var remaining = Math.ceil(msToNextSlot() / 1000);
-  if (remaining < 10) remaining = 300;
-  progressMask.style.animation = 'none';
-  progressMask.style.width = '100%';
-  progressMask.offsetHeight;
-  progressMask.style.animation = 'shrink ' + remaining + 's linear forwards';
+  const mask = document.getElementById('progressMask');
+  mask.style.animation = 'none';
+  mask.style.width = '100%';
+  void mask.offsetWidth; // reflow
+  mask.style.animation = 'shrink 300s linear forwards';
 }
 
-// Fetch secUid (ajuste path se necessário)
-function fetchSecUid(username, cb) {
-  var xhr = new XMLHttpRequest();
-  xhr.open('GET', apiBase + 'user/detail?uniqueId=' + username, true);
-  xhr.setRequestHeader('X-RapidAPI-Key', apiKey);
-  xhr.setRequestHeader('X-RapidAPI-Host', apiHost);
-  xhr.onreadystatechange = function() {
-    if (xhr.readyState === 4 && xhr.status === 200) {
-      var res = JSON.parse(xhr.responseText);
-      cb(res.data?.user?.sec_uid || '');
-    } else if (xhr.readyState === 4) cb('');
-  };
-  xhr.send();
-}
-
-// Fetch vídeos
-function fetchVideosCarros(cb) {
-  var username = usernamesCarros[0];
-  fetchSecUid(username, function(secUid) {
-    if (!secUid) return fallback(cb);
-    var xhr = new XMLHttpRequest();
-    xhr.open('GET', apiBase + 'aweme/post?secUid=' + secUid + '&count=30', true); // tente 'aweme/post' ou 'post/user'
-    // Se 404, mude para 'post/user' ou use search abaixo
-    xhr.setRequestHeader('X-RapidAPI-Key', apiKey);
-    xhr.setRequestHeader('X-RapidAPI-Host', apiHost);
-    xhr.onreadystatechange = function() {
-      if (xhr.readyState === 4 && xhr.status === 200) {
-        var res = JSON.parse(xhr.responseText);
-        var list = res.aweme_list || res.data?.aweme_list || [];
-        list.forEach(v => {
-          var uid = v.author?.unique_id || username;
-          var vid = v.aweme_id || v.id;
-          if (vid) imagensCarros.push({urlBase: 'https://www.tiktok.com/@' + uid + '/video/' + vid, name: vid, isVideo: true});
-        });
-        cb();
-      } else fallback(cb);
-    };
-    xhr.send();
-  });
-}
-
-function fallback(cb) {
-  fallbackUrls.forEach(u => {
-    var id = u.match(/video\/(\d+)/)?.[1] || 'fallback';
-    imagensCarros.push({urlBase: u, name: id, isVideo: true});
-  });
-  cb();
-}
-
-// Mostrar (vídeo ou imagem)
-function mostrarItem() {
+function mostrar() {
   resetProgress();
-  var item = imagens[idx];
+  const item = itens[idx];
+  const container = document.getElementById('embedContainer');
+  let html = '';
   if (item.isVideo) {
-    var html = '<blockquote class="tiktok-embed" cite="' + item.urlBase + '" data-video-id="' + item.name + '" style="width:100%;height:100%;"><section></section></blockquote>';
-    embedContainer.innerHTML = html;
-    if (!document.getElementById('tiktokScript')) {
-      var s = document.createElement('script');
-      s.id = 'tiktokScript';
-      s.src = 'https://www.tiktok.com/embed.js';
-      document.body.appendChild(s);
-    }
+    html = `<blockquote class="tiktok-embed" cite="${item.url}" data-video-id="${item.name}" style="width:100%;height:100%"><section></section></blockquote>`;
   } else {
-    // Para raiz (imagem estática)
-    embedContainer.innerHTML = '<img src="' + item.urlBase + '" style="width:100%;height:100%;object-fit:contain;">';
+    html = `<img src="${item.url}" style="width:100%;height:100%;object-fit:contain;">`;
   }
-  debug.innerHTML = item.name + ' (' + (idx+1) + '/' + imagens.length + ')';
-  scheduleNext();
+  container.innerHTML = html;
+  document.getElementById('debug').innerHTML = `${item.name} (${idx+1}/${itens.length})`;
+  if (!document.getElementById('tiktokScript') && item.isVideo) {
+    const s = document.createElement('script');
+    s.id = 'tiktokScript';
+    s.async = true;
+    s.src = 'https://www.tiktok.com/embed.js';
+    document.body.appendChild(s);
+  }
+  schedule();
 }
 
-function scheduleNext() {
+function schedule() {
   if (autoTimeout) clearTimeout(autoTimeout);
-  autoTimeout = setTimeout(nextItem, msToNextSlot());
+  autoTimeout = setTimeout(next, 300000); // 5 minutos
 }
 
-function nextItem() {
-  idx = (idx + 1) % imagens.length;
-  try { localStorage.setItem('lastIdx', idx); } catch(e) {}
-  mostrarItem();
+function next() {
+  idx = (idx + 1) % itens.length;
+  mostrar();
 }
 
 function skip() {
   if (autoTimeout) clearTimeout(autoTimeout);
-  nextItem();
+  next();
 }
 
-// Build intercalado
-function buildImagens() {
-  var i=0, j=0;
-  imagens = [];
-  while (j < imagensRaiz.length) {
-    var qtd = Math.min(3, imagensCarros.length - i);
-    for (var k=0; k<qtd; k++) imagens.push(imagensCarros[i++]);
-    imagens.push(imagensRaiz[j++]);
-  }
-  while (i < imagensCarros.length) imagens.push(imagensCarros[i++]);
-  if (imagens.length === 0) debug.innerHTML = 'Nenhum item';
-  var delay = msToNextSlot();
-  if (delay > 6000) setTimeout(startSlideshow, delay);
-  else startSlideshow();
-}
-
-function startSlideshow() {
-  var saved = localStorage.getItem('lastIdx');
-  idx = saved ? parseInt(saved) % imagens.length : Math.floor(getServerMs() / 300000) % imagens.length;
-  localStorage.setItem('lastIdx', idx);
-  mostrarItem();
-}
-
-function parseManifest(text) {
-  var arr = [];
-  text.split('\n').forEach(ln => {
-    ln = ln.trim();
-    if (ln) {
-      var isVideo = ln.includes('tiktok.com');
-      var id = isVideo ? ln.match(/video\/(\d+)/)?.[1] || 'raiz' : ln;
-      arr.push({urlBase: ln, name: id, isVideo: isVideo});
-    }
-  });
-  return arr;
-}
-
-function loadRaiz() {
-  var xhr = new XMLHttpRequest();
-  xhr.open('GET', manifestRaiz + '?v=' + Date.now(), true);
-  xhr.onreadystatechange = function() {
-    if (xhr.readyState === 4 && xhr.status === 200) {
-      imagensRaiz = parseManifest(xhr.responseText);
-      fetchVideosCarros(buildImagens);
-    } else if (xhr.readyState === 4) setTimeout(loadRaiz, 15000);
-  };
-  xhr.send();
-}
-
-// Início
-syncServerTime(function() { loadRaiz(); });
+mostrar();
 </script>
 </body>
 </html>
