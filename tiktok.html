@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>Dashboard Teste - Fallback</title>
+<title>Dashboard - Perfis TikTok</title>
 <style>
 * { margin:0; padding:0; border:0; }
 html, body { height:100%; width:100%; background:#000; overflow:hidden; font-family:sans-serif; }
@@ -20,7 +20,7 @@ html, body { height:100%; width:100%; background:#000; overflow:hidden; font-fam
 </head>
 <body onclick="skip()">
 
-<div id="debug">Inicializando...</div>
+<div id="debug">Carregando perfis...</div>
 <div id="embedContainer"></div>
 
 <div class="progress-container">
@@ -32,16 +32,37 @@ html, body { height:100%; width:100%; background:#000; overflow:hidden; font-fam
 </div>
 
 <script>
-const itens = [
-  {url: 'https://www.tiktok.com/@supercarblondie/video/7219450454705573162', name: 'fallback1', isVideo: true},
-  {url: 'https://www.tiktok.com/@shmee150/video/7123456789012345678', name: 'fallback2', isVideo: true},
-  // Adicione aqui os 2 itens do seu videos_raiz.txt
-  {url: 'https://www.tiktok.com/@supercarblondie/video/7219450454705573162', name: 'raiz1', isVideo: true},
-  {url: 'https://raw.githubusercontent.com/sfarinajr/ipad-dashboard/main/screenshot001.png', name: 'raiz2', isVideo: false}
-];
-
+let perfis = [];
 let idx = 0;
 let autoTimeout = null;
+
+async function carregarPerfis() {
+  try {
+    const res = await fetch('https://raw.githubusercontent.com/sfarinajr/ipad-dashboard/main/videos_raiz.txt');
+    if (!res.ok) throw new Error('Falha ao carregar txt');
+    const text = await res.text();
+    perfis = text.split('\n')
+                 .map(line => line.trim())
+                 .filter(line => line.startsWith('https://www.tiktok.com/@') && line.length > 25);
+    
+    if (perfis.length === 0) {
+      document.getElementById('debug').innerHTML = 'Nenhum perfil encontrado no txt';
+      return;
+    }
+    
+    document.getElementById('debug').innerHTML = `Carregados ${perfis.length} perfis`;
+    mostrar(); // inicia o primeiro
+  } catch (err) {
+    document.getElementById('debug').innerHTML = 'Erro ao carregar perfis: ' + err.message;
+    // fallback hardcoded se quiser
+    perfis = [
+      'https://www.tiktok.com/@supercarblondie',
+      'https://www.tiktok.com/@shmee150',
+      'https://www.tiktok.com/@20car.company'
+    ];
+    mostrar();
+  }
+}
 
 function resetProgress() {
   const mask = document.getElementById('progressMask');
@@ -53,23 +74,30 @@ function resetProgress() {
 
 function mostrar() {
   resetProgress();
-  const item = itens[idx];
+  const urlPerfil = perfis[idx];
+  const username = urlPerfil.split('@')[1];
   const container = document.getElementById('embedContainer');
-  let html = '';
-  if (item.isVideo) {
-    html = `<blockquote class="tiktok-embed" cite="${item.url}" data-video-id="${item.name}" style="width:100%;height:100%"><section></section></blockquote>`;
-  } else {
-    html = `<img src="${item.url}" style="width:100%;height:100%;object-fit:contain;">`;
-  }
+  
+  const html = `
+    <blockquote class="tiktok-embed" cite="${urlPerfil}" data-lang="pt-BR">
+      <section></section>
+    </blockquote>
+    <div style="position:absolute; bottom:10px; left:0; right:0; text-align:center; color:white; font-size:1.8em; background:rgba(0,0,0,0.6); padding:12px; pointer-events:none;">
+      @${username} – Vídeos recentes
+    </div>`;
+  
   container.innerHTML = html;
-  document.getElementById('debug').innerHTML = `${item.name} (${idx+1}/${itens.length})`;
-  if (!document.getElementById('tiktokScript') && item.isVideo) {
+  
+  document.getElementById('debug').innerHTML = `@${username} (${idx+1}/${perfis.length})`;
+  
+  if (!document.getElementById('tiktokScript')) {
     const s = document.createElement('script');
     s.id = 'tiktokScript';
     s.async = true;
     s.src = 'https://www.tiktok.com/embed.js';
     document.body.appendChild(s);
   }
+  
   schedule();
 }
 
@@ -79,7 +107,7 @@ function schedule() {
 }
 
 function next() {
-  idx = (idx + 1) % itens.length;
+  idx = (idx + 1) % perfis.length;
   mostrar();
 }
 
@@ -88,7 +116,8 @@ function skip() {
   next();
 }
 
-mostrar();
+// Inicia tudo
+carregarPerfis();
 </script>
 </body>
 </html>
