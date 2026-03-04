@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Dashboard - Perfis Instagram</title>
+<style>
+* { margin:0; padding:0; border:0; }
+html, body { height:100%; width:100%; background:#000; overflow:hidden; font-family:sans-serif; }
+#embedContainer { width:100%; height:100%; position:absolute; top:0; left:0; overflow:hidden; }
+#debug { position:fixed; top:0; left:0; right:0; z-index:999; background:#0b5ed7; color:#fff; padding:6px; font-size:13px; font-family:monospace; opacity:0.85; }
+.progress-container { position:fixed; bottom:0; left:0; right:0; height:28px; background:#222; z-index:100; }
+.progress-bg { position:absolute; inset:0; background:linear-gradient(to right, #4a90e2, #f39c12 60%, #e74c3c); }
+.progress-mask { position:absolute; inset:0 0 0 0; background:#000; width:100%; z-index:1; transition:width 0.3s; }
+.scale { position:absolute; inset:0; color:white; font-weight:bold; text-shadow:0 0 4px #000; }
+.scale span { float:left; width:20%; text-align:center; line-height:28px; }
+@keyframes shrink { from {width:100%} to {width:0%} }
+</style>
+</head>
+<body onclick="skip()">
+
+<div id="debug">Carregando perfis do Instagram...</div>
+<div id="embedContainer"></div>
+
+<div class="progress-container">
+  <div class="progress-bg"></div>
+  <div class="progress-mask" id="progressMask"></div>
+  <div class="scale">
+    <span>5m</span><span>4m</span><span>3m</span><span>2m</span><span>1m</span>
+  </div>
+</div>
+
+<script>
+let perfis = [];
+let idx = 0;
+let autoTimeout = null;
+
+async function carregarPerfis() {
+  try {
+    const res = await fetch('https://raw.githubusercontent.com/sfarinajr/ipad-dashboard/main/instagram_raiz.txt');
+    if (!res.ok) throw new Error('Falha ao carregar txt');
+    const text = await res.text();
+    perfis = text.split('\n')
+                 .map(line => line.trim())
+                 .filter(line => line.startsWith('https://www.instagram.com/') && line.endsWith('/') && line.length > 30);
+    
+    if (perfis.length === 0) {
+      document.getElementById('debug').innerHTML = 'Nenhum perfil Instagram encontrado';
+      return;
+    }
+    
+    document.getElementById('debug').innerHTML = `Carregados ${perfis.length} perfis`;
+    mostrar();
+  } catch (err) {
+    document.getElementById('debug').innerHTML = 'Erro carregando txt: ' + err.message + ' – usando fallback';
+    perfis = [
+      'https://www.instagram.com/supercarblondie/',
+      'https://www.instagram.com/shmee150/',
+      'https://www.instagram.com/20car.company/'  // ajuste se necessário
+    ];
+    mostrar();
+  }
+}
+
+function resetProgress() {
+  const mask = document.getElementById('progressMask');
+  mask.style.animation = 'none';
+  mask.style.width = '100%';
+  void mask.offsetWidth;
+  mask.style.animation = 'shrink 300s linear forwards';
+}
+
+function mostrar() {
+  resetProgress();
+  const urlPerfil = perfis[idx];
+  const username = urlPerfil.split('/')[3]; // extrai @username
+  const container = document.getElementById('embedContainer');
+  
+  const html = `
+    <blockquote class="instagram-media" data-instgrm-permalink="${urlPerfil}" data-instgrm-version="14" style="width:100%; height:100%;">
+      <section></section>
+    </blockquote>
+    <div style="position:absolute; bottom:10px; left:0; right:0; text-align:center; color:white; font-size:1.8em; background:rgba(0,0,0,0.6); padding:12px; pointer-events:none;">
+      @${username} – Reels e posts recentes no Instagram
+    </div>`;
+  
+  container.innerHTML = html;
+  
+  document.getElementById('debug').innerHTML = `@${username} (${idx+1}/${perfis.length})`;
+  
+  // Carrega o script do Instagram só uma vez
+  if (!document.getElementById('igScript')) {
+    const s = document.createElement('script');
+    s.id = 'igScript';
+    s.async = true;
+    s.src = '//www.instagram.com/embed.js';
+    document.body.appendChild(s);
+  } else {
+    // Reprocessa embeds se script já carregado
+    if (window.instgrm && window.instgrm.Embeds) window.instgrm.Embeds.process();
+  }
+  
+  schedule();
+}
+
+function schedule() {
+  if (autoTimeout) clearTimeout(autoTimeout);
+  autoTimeout = setTimeout(next, 300000); // 5 minutos
+}
+
+function next() {
+  idx = (idx + 1) % perfis.length;
+  mostrar();
+}
+
+function skip() {
+  if (autoTimeout) clearTimeout(autoTimeout);
+  next();
+}
+
+// Inicia
+carregarPerfis();
+</script>
+</body>
+</html>
