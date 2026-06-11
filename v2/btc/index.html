@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1024, height=768, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<title>BTC / ETH</title>
+<style>
+* { margin:0; padding:0; -webkit-box-sizing:border-box; box-sizing:border-box; }
+html,body { width:1024px; height:768px; overflow:hidden;
+  background:#0a0e17; color:#fff;
+  font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;
+  -webkit-user-select:none; user-select:none; }
+#wrap { width:1024px; height:768px;
+  display:-webkit-flex; display:flex; -webkit-flex-direction:column; flex-direction:column;
+  -webkit-justify-content:center; justify-content:center;
+  -webkit-align-items:center; align-items:center; }
+.coin { width:760px; margin:18px 0;
+  display:-webkit-flex; display:flex; -webkit-align-items:baseline; align-items:baseline;
+  -webkit-justify-content:space-between; justify-content:space-between; }
+.sym { font-size:84px; font-weight:300; letter-spacing:2px; }
+.sym .tk { font-size:34px; opacity:0.55; margin-left:14px; }
+.price { font-size:96px; font-weight:200; letter-spacing:-2px; }
+.chg { font-size:34px; font-weight:400; width:200px; text-align:right; }
+.up { color:#2ec27e; } .down { color:#ff5a5a; }
+#btc .sym { color:#f7931a; } #eth .sym { color:#8aa0ff; }
+#upd { margin-top:36px; font-size:22px; opacity:0.5; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div class="coin" id="btc">
+    <div class="sym">BTC <span class="tk">Bitcoin</span></div>
+    <div class="price" id="btcp">--</div>
+    <div class="chg" id="btcc">--</div>
+  </div>
+  <div class="coin" id="eth">
+    <div class="sym">ETH <span class="tk">Ethereum</span></div>
+    <div class="price" id="ethp">--</div>
+    <div class="chg" id="ethc">--</div>
+  </div>
+  <div id="upd">--</div>
+</div>
+<script>
+(function () {
+  function money(n) {
+    var s = Math.round(n).toString(), out = "", c = 0, i;
+    for (i = s.length - 1; i >= 0; i--) { out = s.charAt(i) + out; if (++c % 3 === 0 && i > 0) out = "," + out; }
+    return "$" + out;
+  }
+  function chg(el, v) {
+    var sign = v >= 0 ? "+" : "";
+    el.className = "chg " + (v >= 0 ? "up" : "down");
+    el.innerHTML = sign + v.toFixed(2) + "%";
+  }
+  function load() {
+    var xhr = new XMLHttpRequest();
+    xhr.open("GET", "crypto_prices.json?t=" + (new Date().getTime()), true);
+    xhr.onreadystatechange = function () {
+      if (xhr.readyState !== 4 || xhr.status !== 200) return;
+      var d; try { d = JSON.parse(xhr.responseText); } catch (e) { return; }
+      document.getElementById("btcp").innerHTML = money(d.btc);
+      document.getElementById("ethp").innerHTML = money(d.eth);
+      chg(document.getElementById("btcc"), d.btc_change_24h || 0);
+      chg(document.getElementById("ethc"), d.eth_change_24h || 0);
+      document.getElementById("upd").innerHTML = "Atualizado: " + d.updated;
+    };
+    xhr.send();
+  }
+  load();
+  setInterval(load, 60000);
+})();
+</script>
+</body>
+</html>
