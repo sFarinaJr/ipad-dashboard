@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1024, height=768, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<title>Noticias</title>
+<style>
+* { margin:0; padding:0; }
+html,body { width:1024px; height:768px; overflow:hidden; background:#000;
+  -webkit-user-select:none; user-select:none; }
+.layer { position:absolute; top:0; left:0; width:1024px; height:768px;
+  opacity:0; -webkit-transition:opacity 1s ease-in-out; transition:opacity 1s ease-in-out; }
+.layer.on { opacity:1; }
+.layer img { width:1024px; height:768px; display:block; }
+</style>
+</head>
+<body>
+  <div class="layer on" id="a"><img id="ia" alt=""></div>
+  <div class="layer" id="b"><img id="ib" alt=""></div>
+<script>
+(function () {
+  var MANIFEST = "imagens_noticias.txt";
+  var INTERVAL = 15000;          /* troca a cada 8s */
+  var RELOAD_MANIFEST = 600000; /* relê a lista a cada 10 min */
+
+  var list = [], idx = 0, showingA = true;
+  var la = document.getElementById("a"), lb = document.getElementById("b");
+  var ia = document.getElementById("ia"), ib = document.getElementById("ib");
+
+  function loadManifest(cb) {
+    var xhr = new XMLHttpRequest();
+    xhr.open("GET", MANIFEST + "?t=" + (new Date().getTime()), true);
+    xhr.onreadystatechange = function () {
+      if (xhr.readyState !== 4) return;
+      if (xhr.status === 200) {
+        var lines = xhr.responseText.split("\n");
+        var arr = [];
+        for (var i = 0; i < lines.length; i++) {
+          var s = lines[i].replace(/\s+$/, "");
+          if (s) arr.push(s);
+        }
+        if (arr.length) list = arr;
+      }
+      if (cb) cb();
+    };
+    xhr.send();
+  }
+
+  function next() {
+    if (!list.length) return;
+    idx = (idx + 1) % list.length;
+    var url = list[idx] + "?t=" + (new Date().getTime());
+    if (showingA) {
+      ib.src = url; lb.className = "layer on"; la.className = "layer";
+    } else {
+      ia.src = url; la.className = "layer on"; lb.className = "layer";
+    }
+    showingA = !showingA;
+  }
+
+  loadManifest(function () {
+    if (list.length) { ia.src = list[0] + "?t=" + (new Date().getTime()); }
+    setInterval(next, INTERVAL);
+    setInterval(loadManifest, RELOAD_MANIFEST);
+  });
+})();
+</script>
+</body>
+</html>
