@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1024, height=768, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<title>Clima</title>
+<style>
+/* iOS 9.3.5 Safari: prefixos -webkit-, ES5. Sem vídeo → animação vetorial (SMIL),
+   leve, sem dreno de bateria. */
+* { margin:0; padding:0; -webkit-box-sizing:border-box; box-sizing:border-box; }
+html,body { width:1024px; height:768px; overflow:hidden;
+  font-family:"Helvetica Neue",Helvetica,Arial,sans-serif; color:#fff;
+  -webkit-user-select:none; user-select:none;
+  background:#11162e; /* fallback; o JS troca por gradiente da cena */ }
+
+#app { position:absolute; top:0; left:0; width:1024px; height:768px;
+  display:-webkit-flex; display:flex; flex-direction:row; }
+
+/* ---- esquerda: relógio ---- */
+#left { width:540px; height:768px;
+  display:-webkit-flex; display:flex; -webkit-flex-direction:column; flex-direction:column;
+  -webkit-justify-content:center; justify-content:center;
+  -webkit-align-items:center; align-items:center; }
+#city { font-size:48px; font-weight:300; letter-spacing:1px;
+  text-shadow:0 2px 12px rgba(0,0,0,0.5); margin-bottom:28px; }
+#date { font-size:27px; font-weight:300; opacity:0.92; margin-top:28px;
+  text-shadow:0 2px 10px rgba(0,0,0,0.5); }
+
+#clock { display:-webkit-flex; display:flex; -webkit-align-items:center; align-items:center; }
+.colon { font-size:96px; font-weight:200; padding:0 10px; opacity:0.9;
+  text-shadow:0 2px 12px rgba(0,0,0,0.5); }
+.flip { position:relative; width:118px; height:170px; margin:0 4px;
+  font-size:140px; font-weight:600; line-height:170px; text-align:center;
+  -webkit-perspective:500px; perspective:500px; }
+.flip .card { position:absolute; left:0; width:118px; height:85px; overflow:hidden;
+  background:rgba(20,22,30,0.78); border-radius:10px;
+  box-shadow:0 6px 18px rgba(0,0,0,0.35); }
+.flip .card span { position:absolute; left:0; width:118px; height:170px; display:block; }
+.flip .top { top:0; border-bottom:1px solid rgba(0,0,0,0.45); border-radius:10px 10px 0 0; }
+.flip .top span { top:0; }
+.flip .bottom { top:86px; border-radius:0 0 10px 10px; }
+.flip .bottom span { top:-85px; }
+.flip .flap { position:absolute; left:0; width:118px; height:85px; overflow:hidden;
+  background:rgba(20,22,30,0.92); z-index:5;
+  -webkit-backface-visibility:hidden; backface-visibility:hidden; }
+.flip .flap span { position:absolute; left:0; width:118px; height:170px; display:block; }
+.flip .flap.top-flap { top:0; -webkit-transform-origin:bottom; transform-origin:bottom;
+  border-radius:10px 10px 0 0; border-bottom:1px solid rgba(0,0,0,0.45); }
+.flip .flap.top-flap span { top:0; }
+.flip .flap.bottom-flap { top:86px; -webkit-transform-origin:top; transform-origin:top;
+  border-radius:0 0 10px 10px; -webkit-transform:rotateX(90deg); transform:rotateX(90deg); }
+.flip .flap.bottom-flap span { top:-85px; }
+.flip.go .flap.top-flap { -webkit-animation:flipTop 0.5s ease-in forwards; animation:flipTop 0.5s ease-in forwards; }
+.flip.go .flap.bottom-flap { -webkit-animation:flipBottom 0.5s 0.5s ease-out forwards; animation:flipBottom 0.5s 0.5s ease-out forwards; }
+@-webkit-keyframes flipTop { to { -webkit-transform:rotateX(-90deg); } }
+@keyframes flipTop { to { transform:rotateX(-90deg); } }
+@-webkit-keyframes flipBottom { from { -webkit-transform:rotateX(90deg); } to { -webkit-transform:rotateX(0deg); } }
+@keyframes flipBottom { from { transform:rotateX(90deg); } to { transform:rotateX(0deg); } }
+
+/* ---- direita: ícone + temperatura + detalhes ---- */
+#right { width:484px; height:768px;
+  display:-webkit-flex; display:flex; -webkit-flex-direction:column; flex-direction:column;
+  -webkit-justify-content:center; justify-content:center; padding:0 50px 0 6px; }
+#head { display:-webkit-flex; display:flex; -webkit-align-items:center; align-items:center; }
+#icon { width:220px; height:220px; margin-left:-14px; }
+#icon svg { width:220px; height:220px; display:block; }
+#tempwrap { margin-left:6px; }
+#temp { font-size:150px; font-weight:200; line-height:1; letter-spacing:-3px;
+  text-shadow:0 3px 16px rgba(0,0,0,0.4); }
+#temp .deg { font-size:64px; vertical-align:top; font-weight:200; }
+#desc { font-size:42px; font-weight:300; margin-top:2px;
+  text-shadow:0 2px 12px rgba(0,0,0,0.5); }
+#maxmin { font-size:29px; font-weight:300; opacity:0.95; margin-top:8px;
+  text-shadow:0 2px 10px rgba(0,0,0,0.5); }
+#grid { margin-top:34px;
+  display:-webkit-flex; display:flex; -webkit-flex-wrap:wrap; flex-wrap:wrap; }
+.cell { width:50%; margin-bottom:24px; }
+.cell .k { font-size:19px; font-weight:400; opacity:0.7; text-transform:uppercase; letter-spacing:1px; }
+.cell .v { font-size:36px; font-weight:300; text-shadow:0 2px 10px rgba(0,0,0,0.5); }
+</style>
+</head>
+<body>
+  <div id="app">
+    <div id="left">
+      <div id="city">--</div>
+      <div id="clock">
+        <div class="flip" id="h0"></div>
+        <div class="flip" id="h1"></div>
+        <div class="colon">:</div>
+        <div class="flip" id="m0"></div>
+        <div class="flip" id="m1"></div>
+      </div>
+      <div id="date">--</div>
+    </div>
+
+    <div id="right">
+      <div id="head">
+        <div id="icon"></div>
+        <div id="tempwrap">
+          <div id="temp">--<span class="deg">&deg;</span></div>
+        </div>
+      </div>
+      <div id="desc">--</div>
+      <div id="maxmin">--</div>
+      <div id="grid">
+        <div class="cell"><div class="k">Sensacao</div><div class="v" id="feels">--</div></div>
+        <div class="cell"><div class="k">Umidade</div><div class="v" id="hum">--</div></div>
+        <div class="cell"><div class="k">Vento</div><div class="v" id="wind">--</div></div>
+        <div class="cell"><div class="k">Pressao</div><div class="v" id="press">--</div></div>
+        <div class="cell"><div class="k">Nascer</div><div class="v" id="sunrise">--</div></div>
+        <div class="cell"><div class="k">Por do sol</div><div class="v" id="sunset">--</div></div>
+      </div>
+    </div>
+  </div>
+
+<script>
+(function () {
+  var WEEK = ["Domingo","Segunda","Terca","Quarta","Quinta","Sexta","Sabado"];
+  var MON  = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+  var DIRS = ["N","NE","L","SE","S","SO","O","NO"];
+
+  /* gradiente de fundo por cena (estatico = sem custo) */
+  var GRAD = {
+    "clear-day":["#2b6cb0","#63b3ed"], "clear-night":["#0b1026","#1f2a55"],
+    "partly-day":["#4a6fa5","#86a9d6"], "partly-night":["#11162e","#2a3358"],
+    "overcast-day":["#5a6573","#8b97a6"], "overcast-night":["#1a1d24","#353b47"],
+    "fog-day":["#6b7280","#9ca3af"], "fog-night":["#1f2228","#3a3f49"],
+    "rain-day":["#3a4a63","#5b6b85"], "rain-night":["#131a26","#28344a"],
+    "snow-day":["#6b7a99","#aab8d4"], "snow-night":["#1a2233","#333f57"],
+    "storm-day":["#2a2f3a","#4a3a5e"], "storm-night":["#0e0f17","#261c33"]
+  };
+
+  var currentIcon = "", currentScene = "";
+
+  /* ---------- flip clock ---------- */
+  function buildCard(el, d) {
+    el.innerHTML = '<div class="card top"><span>'+d+'</span></div>' +
+                   '<div class="card bottom"><span>'+d+'</span></div>';
+    el.setAttribute("data-d", d);
+  }
+  function flip(el, d) {
+    var old = el.getAttribute("data-d");
+    if (old === String(d)) return;
+    if (old === null) { buildCard(el, d); return; }
+    el.innerHTML =
+      '<div class="card top"><span>'+d+'</span></div>' +
+      '<div class="card bottom"><span>'+old+'</span></div>' +
+      '<div class="flap top-flap"><span>'+old+'</span></div>' +
+      '<div class="flap bottom-flap"><span>'+d+'</span></div>';
+    el.className = "flip"; void el.offsetWidth; el.className = "flip go";
+    el.setAttribute("data-d", d);
+    setTimeout(function () { buildCard(el, d); el.className = "flip"; }, 1050);
+  }
+  var cells = { h0:document.getElementById("h0"), h1:document.getElementById("h1"),
+                m0:document.getElementById("m0"), m1:document.getElementById("m1") };
+  function tick() {
+    var now = new Date(), h = now.getHours(), m = now.getMinutes();
+    flip(cells.h0, Math.floor(h/10)); flip(cells.h1, h%10);
+    flip(cells.m0, Math.floor(m/10)); flip(cells.m1, m%10);
+    document.getElementById("date").innerHTML =
+      WEEK[now.getDay()] + ", " + now.getDate() + " " + MON[now.getMonth()];
+  }
+
+  /* ---------- clima ---------- */
+  function setScene(scene) {
+    if (!scene || scene === currentScene) return;
+    currentScene = scene;
+    var g = GRAD[scene] || GRAD["clear-night"];
+    document.body.style.background =
+      "-webkit-linear-gradient(top, " + g[0] + " 0%, " + g[1] + " 100%)";
+    document.body.style.background =
+      "linear-gradient(to bottom, " + g[0] + " 0%, " + g[1] + " 100%)";
+  }
+  function setIcon(name) {
+    if (!name || name === currentIcon) return;
+    currentIcon = name;
+    var xhr = new XMLHttpRequest();
+    xhr.open("GET", "icons/" + name + ".svg?t=" + (new Date().getTime()), true);
+    xhr.onreadystatechange = function () {
+      if (xhr.readyState === 4 && xhr.status === 200) {
+        /* inline → o SMIL anima no Safari do iOS 9 */
+        document.getElementById("icon").innerHTML = xhr.responseText;
+      }
+    };
+    xhr.send();
+  }
+  function dirLabel(deg) { return DIRS[Math.round(deg/45) % 8]; }
+
+  function loadWeather() {
+    var xhr = new XMLHttpRequest();
+    xhr.open("GET", "weather.json?t=" + (new Date().getTime()), true);
+    xhr.onreadystatechange = function () {
+      if (xhr.readyState !== 4 || xhr.status !== 200) return;
+      var w; try { w = JSON.parse(xhr.responseText); } catch (e) { return; }
+      document.getElementById("city").innerHTML = w.city;
+      document.getElementById("temp").innerHTML = w.temp + '<span class="deg">&deg;</span>';
+      document.getElementById("desc").innerHTML = w.description;
+      document.getElementById("maxmin").innerHTML = "Max " + w.temp_max + "°   Min " + w.temp_min + "°";
+      document.getElementById("feels").innerHTML = w.feels_like + "°";
+      document.getElementById("hum").innerHTML = w.humidity + "%";
+      document.getElementById("wind").innerHTML = w.wind_speed + " km/h " + dirLabel(w.wind_dir);
+      document.getElementById("press").innerHTML = w.pressure + " hPa";
+      document.getElementById("sunrise").innerHTML = w.sunrise;
+      document.getElementById("sunset").innerHTML = w.sunset;
+      setScene(w.scene);
+      setIcon(w.icon);
+    };
+    xhr.send();
+  }
+
+  tick();
+  loadWeather();
+  setInterval(tick, 5000);
+  setInterval(loadWeather, 60000);
+})();
+</script>
+</body>
+</html>
